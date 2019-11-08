@@ -6,6 +6,7 @@
 #define XIL2CPPDUMPER_XIL2CPPDUMPER_H
 
 #include "il2cpp-metadata.h"
+#include <unistd.h>
 
 class XIL2CppDumper
 {

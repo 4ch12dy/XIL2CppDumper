@@ -1,72 +1,23 @@
 //
 // Created by xia0 on 2019/11/5.
 //
-
-#include <iostream>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
 #include "XIL2CppDumper.h"
 #include "xia0-bin-lib/xia0-bin-lib.h"
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
 
 void* XIL2CppDumper::LoadMetadataFile(const char *fileName) {
-    int fd;
-    int ret;
-    struct stat st;
-    size_t len_file;
-    void *p;
-
-    if ((fd = open(fileName, O_RDWR | O_CREAT,  S_IRWXU | S_IRGRP | S_IROTH)) < 0){
-        XELOG("failed to open file:%s", fileName);
-        perror("");
-        return NULL;
-    }
-    if ((ret = fstat(fd,&st)) < 0){
-        XELOG("error in fstat");
-        return NULL;
-    }
-    len_file = st.st_size;
-
-    if ((p = mmap(NULL,len_file,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0)) == MAP_FAILED){
-        XELOG("error in mmap");
-        return NULL;
-    }
-
-    if (close(fd)){
-        XELOG("error in close");
-    }
+    void* p = map_file_2_mem(fileName);
 
     return p;
 }
 
 char* XIL2CppDumper::HexDump(void *targetAddr, uint64_t size) {
-    uint64_t hex_buffer_size = size*3 + 1;
-    char* hex_buffer = (char*)malloc((unsigned long)hex_buffer_size);
-    memset(hex_buffer, 0x0, hex_buffer_size);
-
-    uint8_t* p = (uint8_t*)targetAddr;
-    char* q = hex_buffer;
-
-    for(int  i = 0; i < size ;i++ ){
-        sprintf(q, "%02X ", *p);
-        q += 3;
-        p ++;
-    };
-    return hex_buffer;
+    return hex_dump(targetAddr, size);
 }
 
 void XIL2CppDumper::ShowHexDump(void *targetAddr, uint64_t size) {
-    char* dumpStr = XIL2CppDumper::HexDump(targetAddr, size);
-    XILOG("[HEX]:%s\n", dumpStr);
-}
-
-const char* XIL2CppDumper::getStringFromIndex(StringIndex index) {
-    assert(index <= this->metadataHeader->stringCount);
-    const char* strings = ((const char*) this->metadata +  this->metadataHeader->stringOffset) + index;
-    return strings;
+    show_hex_dump(targetAddr, size);
 }
 
 char* XIL2CppDumper::removeAllChars(char *str, char c) {
@@ -79,6 +30,18 @@ char* XIL2CppDumper::removeAllChars(char *str, char c) {
 
     return str;
 }
+
+/**
+ * get string by index from metadata
+ * @param index
+ * @return
+ */
+const char* XIL2CppDumper::getStringFromIndex(StringIndex index) {
+    assert(index <= this->metadataHeader->stringCount);
+    const char* strings = ((const char*) this->metadata +  this->metadataHeader->stringOffset) + index;
+    return strings;
+}
+
 
 char* XIL2CppDumper::getStringLiteralFromIndex(StringIndex index) {
     assert(index >= 0 && static_cast<uint32_t>(index) < metadataHeader->stringLiteralCount / sizeof(Il2CppStringLiteral) && "Invalid string literal index ");
@@ -96,6 +59,9 @@ char* XIL2CppDumper::getStringLiteralFromIndex(StringIndex index) {
     return dstStr;
 }
 
+/**
+ * dump string from metadata
+ */
 void XIL2CppDumper::dumpString() {
     int usageListCount = this->metadataHeader->metadataUsageListsCount / sizeof(Il2CppMetadataUsageList);
     for (int n = 0; n < usageListCount; ++n) {
