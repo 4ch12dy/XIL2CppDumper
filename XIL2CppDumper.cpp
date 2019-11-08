@@ -13,15 +13,7 @@ XIL2CppDumper* XIL2CppDumper::GetInstance() {
     return m_pInstance;
 }
 
-void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinFile) {
-    metadata = map_file_2_mem(metadataFile);
-    il2cppbin = map_file_2_mem(il2cpBinFile);
-
-    metadataHeader = (const Il2CppGlobalMetadataHeader*)metadata;
-
-    // should check bin file is iOS Macho64 or android so ELF
-    // here is iOS Macho64
-
+void XIL2CppDumper::initWithMacho64(void *il2cppbin) {
     mach_header_64* mh = (mach_header_64*)il2cppbin;
     XDLOG("macho header magic number:%X\n", mh->magic);
     XRange* range = macho64_get_sec_range_by_name(mh, "__DATA", "__mod_init_func");
@@ -52,10 +44,22 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     void* ida_g_MetadataRegistration = (void*)((uint64_t)arm64_adrp_decode(ida_pc, insn) + arm64_add_decode_imm(arm64_insn_from_addr(mem_pc+1)));
     XDLOG("decode g_MetadataRegistration adrress from bin:0x%lx\n", ida_g_MetadataRegistration);
 
+    // init done
     g_CodeRegistration = (Il2CppCodeRegistration*)((char*)il2cppbin + (uint64_t)ida_g_CodeRegistration - 0x100000000);
     g_MetadataRegistration = (Il2CppMetadataRegistration*)((char*)il2cppbin + (uint64_t)ida_g_MetadataRegistration - 0x100000000);
 
     XDLOG("g_CodeRegistration methodPointersCount:%ld\n", g_CodeRegistration->methodPointersCount);
+}
+void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinFile) {
+    metadata = map_file_2_mem(metadataFile);
+    il2cppbin = map_file_2_mem(il2cpBinFile);
+
+    metadataHeader = (const Il2CppGlobalMetadataHeader*)metadata;
+
+    // should check bin file is iOS Macho64 or android so ELF
+    // here is iOS Macho64
+    initWithMacho64(il2cppbin);
+
 }
 
 void* XIL2CppDumper::LoadMetadataFile(const char *fileName) {

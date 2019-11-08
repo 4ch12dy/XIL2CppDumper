@@ -15,7 +15,7 @@ class XIL2CppDumper
 private:
     XIL2CppDumper(){}
     static XIL2CppDumper *m_pInstance;
-
+    void initWithMacho64(void* il2cppbin);
 public:
     // metadata
     void* metadata;
