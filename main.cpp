@@ -1,7 +1,7 @@
 #include <iostream>
 #include "XIL2CppDumper.h"
 #include "il2cpp-metadata.h"
-#include "xia0-bin-lib/xia0-bin-lib.h"
+#include "XB1nLib/XB1nLib.h"
 
 int main() {
     std::cout << "====XIL2CppDumper====" << std::endl;

@@ -2,7 +2,7 @@
 // Created by xia0 on 2019/11/5.
 //
 #include "XIL2CppDumper.h"
-#include "xia0-bin-lib/xia0-bin-lib.h"
+#include "XB1nLib/XB1nLib.h"
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
 
