@@ -7,11 +7,12 @@ int main() {
     XILOG("====XIL2CppDumper====\n");
 
     // init
-    XIL2CppDumper* dumper = XIL2CppDumper::GetInstance();
+    XIL2CppDumper* xdump = XIL2CppDumper::GetInstance();
     const char* metadataFileFullPath = "/Users/zhangshun/xia0/game-sec/XIL2CppDumper/resource/global-metadata.dat";
     const char* il2cppbinFileFullPath = "/Users/zhangshun/xia0/game-sec/XIL2CppDumper/resource/ProductName";
 
-    dumper->initMetadata(metadataFileFullPath, il2cppbinFileFullPath);
+    xdump->initMetadata(metadataFileFullPath, il2cppbinFileFullPath);
+    xdump->dumpTypes();
 
     return 0;
 }

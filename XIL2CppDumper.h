@@ -5,9 +5,11 @@
 #ifndef XIL2CPPDUMPER_XIL2CPPDUMPER_H
 #define XIL2CPPDUMPER_XIL2CPPDUMPER_H
 
+#include <string>
 #include <unistd.h>
 #include "il2cpp-metadata.h"
 #include "il2cpp-runtime-metadata.h"
+using namespace std;
 
 class XIL2CppDumper
 {
@@ -20,8 +22,10 @@ public:
     // metadata
     void* metadata;
     const Il2CppGlobalMetadataHeader* metadataHeader;
-    const Il2CppImageDefinition* metadataImageTable;
+    const Il2CppImageDefinition* metadataImageDefinitionTable;
     const Il2CppTypeDefinition* metadataTypeDefinitionTable;
+    const Il2CppType** g_Il2CppTypeTable;
+    int32_t g_Il2CppTypeTableCount;
 
     // binary file
     void* il2cppbin;
@@ -32,15 +36,12 @@ public:
     static XIL2CppDumper * GetInstance();
     void initMetadata(const char* metadataFile, const char* il2cpBinFile);
 
-    // some debug funcs
-    static char* HexDump(void* targetAddr, uint64_t size);
-    static void ShowHexDump(void* targetAddr, uint64_t size);
-
-    // misc
-    static void* LoadMetadataFile(const char* fileName);
-
     // il2cpp function
     const char* getStringFromIndex(StringIndex index);
+    string getTypeName(const Il2CppType* type);
+    string getTypeDefinitionName(const Il2CppTypeDefinition* typeDefinition);
+    const Il2CppType* getTypeFromIl2CppTypeTableByIndex(TypeIndex index);
+
     char* getStringLiteralFromIndex(StringIndex index);
     char* removeAllChars(char* str, char c);
 

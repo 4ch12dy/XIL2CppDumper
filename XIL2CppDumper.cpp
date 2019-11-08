@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "XIL2CppDumper.h"
 #include "XB1nLib/XB1nLib.h"
+#include "il2cpp-runtime-metadata.h"
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
 
@@ -52,29 +53,28 @@ void XIL2CppDumper::initWithMacho64(void *il2cppbin) {
 }
 void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinFile) {
     metadata = map_file_2_mem(metadataFile);
+    metadataHeader = (const Il2CppGlobalMetadataHeader*)metadata;
     il2cppbin = map_file_2_mem(il2cpBinFile);
 
-    metadataHeader = (const Il2CppGlobalMetadataHeader*)metadata;
+    metadataImageDefinitionTable = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
+    metadataTypeDefinitionTable = (const Il2CppTypeDefinition*)((const char*)metadata + metadataHeader->typeDefinitionsOffset);
 
     // should check bin file is iOS Macho64 or android so ELF
     // here is iOS Macho64
     initWithMacho64(il2cppbin);
+    assert(g_CodeRegistration && g_MetadataRegistration);
 
+    g_Il2CppTypeTable = (const Il2CppType**)((char*)il2cppbin + (uint64_t)(g_MetadataRegistration->types) - 0x100000000);
+    g_Il2CppTypeTableCount = (int32_t)(g_MetadataRegistration->typesCount);
+
+    XILOG("g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
 }
 
-void* XIL2CppDumper::LoadMetadataFile(const char *fileName) {
-    void* p = map_file_2_mem(fileName);
-
-    return p;
+const Il2CppType* XIL2CppDumper::getTypeFromIl2CppTypeTableByIndex(TypeIndex index) {
+    assert(g_Il2CppTypeTable && index >=0 && index <= g_Il2CppTypeTableCount);
+    return (const Il2CppType*)((char*)il2cppbin + (uint64_t)(g_Il2CppTypeTable[index]) - 0x100000000);
 }
 
-char* XIL2CppDumper::HexDump(void *targetAddr, uint64_t size) {
-    return hex_dump(targetAddr, size);
-}
-
-void XIL2CppDumper::ShowHexDump(void *targetAddr, uint64_t size) {
-    show_hex_dump(targetAddr, size);
-}
 
 char* XIL2CppDumper::removeAllChars(char *str, char c) {
     char *pr = str, *pw = str;
@@ -93,11 +93,10 @@ char* XIL2CppDumper::removeAllChars(char *str, char c) {
  * @return
  */
 const char* XIL2CppDumper::getStringFromIndex(StringIndex index) {
-    assert(index <= this->metadataHeader->stringCount);
-    const char* strings = ((const char*) this->metadata +  this->metadataHeader->stringOffset) + index;
+    assert(index <= metadataHeader->stringCount);
+    const char* strings = ((const char*) metadata +  metadataHeader->stringOffset) + index;
     return strings;
 }
-
 
 char* XIL2CppDumper::getStringLiteralFromIndex(StringIndex index) {
     assert(index >= 0 && static_cast<uint32_t>(index) < metadataHeader->stringLiteralCount / sizeof(Il2CppStringLiteral) && "Invalid string literal index ");
@@ -186,6 +185,52 @@ void XIL2CppDumper::dumpAllImages() {
     }
 }
 
+string XIL2CppDumper::getTypeDefinitionName(const Il2CppTypeDefinition *typeDefinition) {
+    string ret = "";
+    if (typeDefinition->declaringTypeIndex != -1){
+        ret += getTypeName(getTypeFromIl2CppTypeTableByIndex(typeDefinition->declaringTypeIndex)) + ".";
+    }
+    ret += getStringFromIndex(typeDefinition->nameIndex);
+
+    return ret;
+}
+
+string XIL2CppDumper::getTypeName(const Il2CppType *type) {
+
+    string ret;
+    switch (type->type){
+
+        case IL2CPP_TYPE_CLASS:
+        case IL2CPP_TYPE_VALUETYPE:
+        {
+            const Il2CppTypeDefinition* typeDef = (const Il2CppTypeDefinition*)(metadataTypeDefinitionTable + type->data.klassIndex);
+            ret = getTypeDefinitionName(typeDef);
+            break;
+        }
+        case IL2CPP_TYPE_GENERICINST:
+        {
+
+            break;
+        }
+        case IL2CPP_TYPE_ARRAY:
+        {
+            break;
+        }
+        case IL2CPP_TYPE_SZARRAY:
+        {
+            break;
+        }
+        case IL2CPP_TYPE_PTR:
+        {
+            break;
+        }
+        default:
+
+            break;
+    }
+    return ret;
+}
+
 void XIL2CppDumper::dumpTypes() {
     // dump all define types of first image
     const Il2CppImageDefinition* imagesDefinitions = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
@@ -202,7 +247,11 @@ void XIL2CppDumper::dumpTypes() {
         XILOG("====\n[%d] %s %s\n", i, typeName, typeNamespace);
         if (typeDefinition->parentIndex >= 0) {
             XILOG("parentIndex:%d\n", 25381 + typeDefinition->parentIndex);
+            XILOG("idx:%lx\n", g_Il2CppTypeTable[typeDefinition->parentIndex]);
+//            const Il2CppType* type =  g_MetadataRegistration->types[typeDefinition->parentIndex];
+            string name = getTypeName(getTypeFromIl2CppTypeTableByIndex(typeDefinition->parentIndex));
 
+            XILOG("parent name:%s", name.data());
         }
     }
 }
