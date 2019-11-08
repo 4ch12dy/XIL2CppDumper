@@ -13,6 +13,51 @@ XIL2CppDumper* XIL2CppDumper::GetInstance() {
     return m_pInstance;
 }
 
+void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinFile) {
+    metadata = map_file_2_mem(metadataFile);
+    il2cppbin = map_file_2_mem(il2cpBinFile);
+
+    metadataHeader = (const Il2CppGlobalMetadataHeader*)metadata;
+
+    // should check bin file is iOS Macho64 or android so ELF
+    // here is iOS Macho64
+
+    mach_header_64* mh = (mach_header_64*)il2cppbin;
+    XDLOG("macho header magic number:%X\n", mh->magic);
+    XRange* range = macho64_get_sec_range_by_name(mh, "__DATA", "__mod_init_func");
+    XDLOG("macho64 mod_init_func address start:0x%lx end:0x%lx\n", range->start, range->end);
+
+    void** mod_init_func_list = (void**)((char*)il2cppbin + range->start - 0x100000000);
+    void* first_init_func = *mod_init_func_list;
+    XDLOG("mod_init_func first func addr:0x%lx\n", first_init_func);
+
+    uint32_t * mem_pc = (uint32_t *)((char*)il2cppbin + (uint64_t)first_init_func - 0x100000000);
+
+    uint32_t* ida_pc = (uint32_t*)first_init_func;
+    ida_pc += 2;
+    mem_pc += 2;
+    uint32_t insn = arm64_insn_from_addr(mem_pc);
+    void* ida_s_Il2CppCodegenRegistration = arm64_adr_decode(ida_pc, insn);
+    XDLOG("decode s_Il2CppCodegenRegistration adrress from bin:0x%lx\n", ida_s_Il2CppCodegenRegistration);
+
+    ida_pc = (uint32_t*)ida_s_Il2CppCodegenRegistration;
+    mem_pc = (uint32_t *)((char*)il2cppbin + (uint64_t)ida_s_Il2CppCodegenRegistration - 0x100000000);
+    insn = arm64_insn_from_addr(mem_pc);
+    void* ida_g_CodeRegistration = (void*)((uint64_t)arm64_adrp_decode(ida_pc, insn) + arm64_add_decode_imm(arm64_insn_from_addr(mem_pc+1)));
+    XDLOG("decode g_CodeRegistration adrress from bin:0x%lx\n", ida_g_CodeRegistration);
+
+    ida_pc += 2;
+    mem_pc += 2;
+    insn = arm64_insn_from_addr(mem_pc);
+    void* ida_g_MetadataRegistration = (void*)((uint64_t)arm64_adrp_decode(ida_pc, insn) + arm64_add_decode_imm(arm64_insn_from_addr(mem_pc+1)));
+    XDLOG("decode g_MetadataRegistration adrress from bin:0x%lx\n", ida_g_MetadataRegistration);
+
+    g_CodeRegistration = (Il2CppCodeRegistration*)((char*)il2cppbin + (uint64_t)ida_g_CodeRegistration - 0x100000000);
+    g_MetadataRegistration = (Il2CppMetadataRegistration*)((char*)il2cppbin + (uint64_t)ida_g_MetadataRegistration - 0x100000000);
+
+    XDLOG("g_CodeRegistration methodPointersCount:%ld\n", g_CodeRegistration->methodPointersCount);
+}
+
 void* XIL2CppDumper::LoadMetadataFile(const char *fileName) {
     void* p = map_file_2_mem(fileName);
 
@@ -79,7 +124,6 @@ void XIL2CppDumper::dumpString() {
         assert(this->metadataHeader->metadataUsageListsCount >= 0 && index <= static_cast<uint32_t>(this->metadataHeader->metadataUsageListsCount));
 
         const Il2CppMetadataUsageList* metadataUsageLists = MetadataOffset<const Il2CppMetadataUsageList*>(this->metadata, this->metadataHeader->metadataUsageListsOffset, index);
-
         uint32_t start = metadataUsageLists->start;
         uint32_t count = metadataUsageLists->count;
         XILOG("start:%d count:%d\n", start, count);
@@ -122,6 +166,39 @@ void XIL2CppDumper::dumpString() {
                     //std::cout << "not implemented" << std::endl;
                     break;
             }
+        }
+    }
+}
+
+void XIL2CppDumper::dumpAllImages() {
+    // dump all image name
+    const Il2CppImageDefinition* imagesDefinitions = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
+    int32_t imageCount = metadataHeader->imagesCount / sizeof(Il2CppImageDefinition);
+    for (int32_t imageIndex = 0; imageIndex < imageCount; imageIndex++)
+    {
+        const Il2CppImageDefinition* imageDefinition = imagesDefinitions + imageIndex;
+        const char* imageName = this->getStringFromIndex(imageDefinition->nameIndex);
+        XILOG("[%d] image name :%s\n", imageIndex, imageName);
+    }
+}
+
+void XIL2CppDumper::dumpTypes() {
+    // dump all define types of first image
+    const Il2CppImageDefinition* imagesDefinitions = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
+    const Il2CppImageDefinition* fisrtImage = imagesDefinitions + 23;
+    const Il2CppTypeDefinition* typeDefinitions = (const Il2CppTypeDefinition*)((const char*)metadata + metadataHeader->typeDefinitionsOffset);
+    const Il2CppTypeDefinition* imageTypeDefinitions = (const Il2CppTypeDefinition*)((const char*)typeDefinitions + fisrtImage->typeStart*
+                                                                                                                    sizeof(Il2CppTypeDefinition));
+
+    int32_t typeDefinitionCount = fisrtImage->typeCount;
+    for (int32_t i = 0; i < typeDefinitionCount; i++) {
+        const  Il2CppTypeDefinition* typeDefinition = imageTypeDefinitions + i;
+        const char* typeName = this->getStringFromIndex(typeDefinition->nameIndex);
+        const char* typeNamespace = this->getStringFromIndex(typeDefinition->namespaceIndex);
+        XILOG("====\n[%d] %s %s\n", i, typeName, typeNamespace);
+        if (typeDefinition->parentIndex >= 0) {
+            XILOG("parentIndex:%d\n", 25381 + typeDefinition->parentIndex);
+
         }
     }
 }

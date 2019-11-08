@@ -150,5 +150,113 @@ typedef enum Il2CppCharSet
     CHARSET_NOT_SPECIFIED
 } Il2CppCharSet;
 
+typedef void (*Il2CppMethodPointer)();
+
+#if RUNTIME_MONO
+typedef void* (*InvokerMethod)(Il2CppMethodPointer, const MonoMethod*, void*, void**);
+#else
+typedef void* (*InvokerMethod)(Il2CppMethodPointer, const MethodInfo*, void*, void**);
+#endif
+
+typedef struct Il2CppObject Il2CppObject;
+
+typedef struct CustomAttributesCache
+{
+    int count;
+    Il2CppObject** attributes;
+} CustomAttributesCache;
+
+typedef void (*CustomAttributesCacheGenerator)(CustomAttributesCache*);
+typedef void (*PInvokeMarshalToNativeFunc)(void* managedStructure, void* marshaledStructure);
+typedef void (*PInvokeMarshalFromNativeFunc)(void* marshaledStructure, void* managedStructure);
+typedef void (*PInvokeMarshalCleanupFunc)(void* marshaledStructure);
+typedef struct Il2CppIUnknown* (*CreateCCWFunc)(Il2CppObject* obj);
+typedef struct Il2CppGuid Il2CppGuid;
+
+typedef struct Il2CppInteropData
+{
+    Il2CppMethodPointer delegatePInvokeWrapperFunction;
+    PInvokeMarshalToNativeFunc pinvokeMarshalToNativeFunction;
+    PInvokeMarshalFromNativeFunc pinvokeMarshalFromNativeFunction;
+    PInvokeMarshalCleanupFunc pinvokeMarshalCleanupFunction;
+    CreateCCWFunc createCCWFunction;
+    const Il2CppGuid* guid;
+#if RUNTIME_MONO
+    MonoMetadataToken typeToken;
+    uint64_t hash;
+#else
+    const Il2CppType* type;
+#endif
+} Il2CppInteropData;
+typedef struct Il2CppCodeRegistration
+{
+    uint32_t methodPointersCount;
+    const Il2CppMethodPointer* methodPointers;
+    uint32_t reversePInvokeWrapperCount;
+    const Il2CppMethodPointer* reversePInvokeWrappers;
+    uint32_t genericMethodPointersCount;
+    const Il2CppMethodPointer* genericMethodPointers;
+    uint32_t invokerPointersCount;
+    const InvokerMethod* invokerPointers;
+    CustomAttributeIndex customAttributeCount;
+    const CustomAttributesCacheGenerator* customAttributeGenerators;
+    uint32_t unresolvedVirtualCallCount;
+    const Il2CppMethodPointer* unresolvedVirtualCallPointers;
+    uint32_t interopDataCount;
+    Il2CppInteropData* interopData;
+} Il2CppCodeRegistration;
+
+typedef struct
+{
+    MethodIndex methodIndex;
+    MethodIndex invokerIndex;
+} Il2CppGenericMethodIndices;
+
+typedef struct Il2CppGenericMethodFunctionsDefinitions
+{
+    GenericMethodIndex genericMethodIndex;
+    Il2CppGenericMethodIndices indices;
+} Il2CppGenericMethodFunctionsDefinitions;
+
+typedef struct Il2CppMethodSpec
+{
+    MethodIndex methodDefinitionIndex;
+    GenericInstIndex classIndexIndex;
+    GenericInstIndex methodIndexIndex;
+} Il2CppMethodSpec;
+
+typedef struct Il2CppTypeDefinitionSizes
+{
+    uint32_t instance_size;
+    int32_t native_size;
+    uint32_t static_fields_size;
+    uint32_t thread_static_fields_size;
+} Il2CppTypeDefinitionSizes;
+
+typedef unsigned long size_t;
+
+typedef struct Il2CppMetadataRegistration
+{
+    int32_t genericClassesCount;
+    Il2CppGenericClass* const * genericClasses;
+    int32_t genericInstsCount;
+    const Il2CppGenericInst* const * genericInsts;
+    int32_t genericMethodTableCount;
+    const Il2CppGenericMethodFunctionsDefinitions* genericMethodTable;
+    int32_t typesCount;
+    const Il2CppType* const * types;
+    int32_t methodSpecsCount;
+    const Il2CppMethodSpec* methodSpecs;
+
+    FieldIndex fieldOffsetsCount;
+    const int32_t** fieldOffsets;
+
+    TypeDefinitionIndex typeDefinitionsSizesCount;
+    const Il2CppTypeDefinitionSizes** typeDefinitionsSizes;
+    const size_t metadataUsagesCount;
+    void** const* metadataUsages;
+} Il2CppMetadataRegistration;
+
+
 
 #endif //XIL2CPPDUMPER_IL2CPP_RUNTIME_METADATA_H
