@@ -1,10 +1,17 @@
 //
 // Created by xia0 on 2019/11/5.
 //
+#include <assert.h>
 #include "XIL2CppDumper.h"
 #include "XB1nLib/XB1nLib.h"
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
+
+XIL2CppDumper* XIL2CppDumper::GetInstance() {
+    if(m_pInstance == NULL)
+        m_pInstance = new XIL2CppDumper();
+    return m_pInstance;
+}
 
 void* XIL2CppDumper::LoadMetadataFile(const char *fileName) {
     void* p = map_file_2_mem(fileName);
