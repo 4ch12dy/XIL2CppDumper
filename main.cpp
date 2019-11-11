@@ -12,7 +12,7 @@ int main() {
     const char* il2cppbinFileFullPath = "/Users/zhangshun/xia0/game-sec/XIL2CppDumper/resource/ProductName";
 
     xdump->initMetadata(metadataFileFullPath, il2cppbinFileFullPath);
-    xdump->dumpTypes();
+    xdump->dump();
 
     return 0;
 }

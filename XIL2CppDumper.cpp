@@ -2,9 +2,11 @@
 // Created by xia0 on 2019/11/5.
 //
 #include <assert.h>
+#include <vector>
 #include "XIL2CppDumper.h"
 #include "XB1nLib/XB1nLib.h"
 #include "il2cpp-runtime-metadata.h"
+#include "il2cpp-tabledefs.h"
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
 
@@ -58,6 +60,7 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
 
     metadataImageDefinitionTable = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
     metadataTypeDefinitionTable = (const Il2CppTypeDefinition*)((const char*)metadata + metadataHeader->typeDefinitionsOffset);
+    metadataInterfaceTable = (uint32_t*)((const char*)metadata + metadataHeader->interfacesOffset);
 
     // should check bin file is iOS Macho64 or android so ELF
     // here is iOS Macho64
@@ -68,6 +71,9 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     g_Il2CppTypeTableCount = (int32_t)(g_MetadataRegistration->typesCount);
 
     XILOG("g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
+
+    // open file for write
+    outfile.open("/Users/zhangshun/xia0/game-sec/XIL2CppDumper/dump/dump.cs", ios::out | ios::trunc);
 }
 
 const Il2CppType* XIL2CppDumper::getTypeFromIl2CppTypeTableByIndex(TypeIndex index) {
@@ -75,6 +81,11 @@ const Il2CppType* XIL2CppDumper::getTypeFromIl2CppTypeTableByIndex(TypeIndex ind
     return (const Il2CppType*)((char*)il2cppbin + (uint64_t)(g_Il2CppTypeTable[index]) - 0x100000000);
 }
 
+void* XIL2CppDumper::idaAddr2MemAddr(void *idaAddr) {
+    void* mem = (void*)((char*)il2cppbin + (uint64_t)idaAddr - 0x100000000);
+//    XDLOG("ida address:0x%lx il2cppbin address:0x%lx mem address:0x%lx\n", idaAddr, il2cppbin, mem);
+    return mem;
+}
 
 char* XIL2CppDumper::removeAllChars(char *str, char c) {
     char *pr = str, *pw = str;
@@ -92,7 +103,7 @@ char* XIL2CppDumper::removeAllChars(char *str, char c) {
  * @param index
  * @return
  */
-const char* XIL2CppDumper::getStringFromIndex(StringIndex index) {
+const char* XIL2CppDumper::getStringByIndex(StringIndex index) {
     assert(index <= metadataHeader->stringCount);
     const char* strings = ((const char*) metadata +  metadataHeader->stringOffset) + index;
     return strings;
@@ -180,9 +191,34 @@ void XIL2CppDumper::dumpAllImages() {
     for (int32_t imageIndex = 0; imageIndex < imageCount; imageIndex++)
     {
         const Il2CppImageDefinition* imageDefinition = imagesDefinitions + imageIndex;
-        const char* imageName = this->getStringFromIndex(imageDefinition->nameIndex);
+        const char* imageName = this->getStringByIndex(imageDefinition->nameIndex);
         XILOG("[%d] image name :%s\n", imageIndex, imageName);
     }
+}
+const Il2CppTypeDefinition* XIL2CppDumper::getTypeDefinitionByIndex(TypeDefinitionIndex index) {
+    const Il2CppTypeDefinition* typeDef = (const Il2CppTypeDefinition*)(metadataTypeDefinitionTable + index);
+    return typeDef;
+}
+
+string XIL2CppDumper::getGenericTypeParams(const Il2CppGenericInst *genericInst) {
+    int argc = genericInst->type_argc;
+    string argNames;
+    int count = argc+argc-1+2;
+    string retNames[count];
+    retNames[0] = "<";
+    for (int i = 0; i < argc; ++i) {
+        const Il2CppType **typeArgv = (const Il2CppType **)idaAddr2MemAddr(genericInst->type_argv);
+        const Il2CppType * type = (const Il2CppType*)idaAddr2MemAddr((void*)typeArgv[i]);
+        retNames[i+1] = getTypeName(type);
+        if (i+1 < argc){
+            retNames[i+2] = ",";
+        }
+    }
+    retNames[count-1] = ">";
+    for (int j = 0; j < count; ++j) {
+        argNames += retNames[j];
+    }
+    return argNames;
 }
 
 string XIL2CppDumper::getTypeDefinitionName(const Il2CppTypeDefinition *typeDefinition) {
@@ -190,7 +226,7 @@ string XIL2CppDumper::getTypeDefinitionName(const Il2CppTypeDefinition *typeDefi
     if (typeDefinition->declaringTypeIndex != -1){
         ret += getTypeName(getTypeFromIl2CppTypeTableByIndex(typeDefinition->declaringTypeIndex)) + ".";
     }
-    ret += getStringFromIndex(typeDefinition->nameIndex);
+    ret += getStringByIndex(typeDefinition->nameIndex);
 
     return ret;
 }
@@ -209,19 +245,32 @@ string XIL2CppDumper::getTypeName(const Il2CppType *type) {
         }
         case IL2CPP_TYPE_GENERICINST:
         {
-
+            const Il2CppGenericClass* genericClass = (Il2CppGenericClass*)idaAddr2MemAddr((void*)type->data.generic_class);
+            const Il2CppTypeDefinition* typeDef = getTypeDefinitionByIndex(genericClass->typeDefinitionIndex);
+            ret = getStringByIndex(typeDef->nameIndex);
+            Il2CppGenericContext context = genericClass->context;
+            const Il2CppGenericInst* genericInst = (const Il2CppGenericInst*)idaAddr2MemAddr((void*)context.class_inst);
+            string argNames = getGenericTypeParams(genericInst);
+            ret += argNames;
             break;
         }
         case IL2CPP_TYPE_ARRAY:
         {
+            const Il2CppArrayType* arrayType = (const Il2CppArrayType*)idaAddr2MemAddr((void*)type->data.array);
+            const Il2CppType *tmpType = (const Il2CppType *)idaAddr2MemAddr((void*)arrayType->etype);
+            ret = getTypeName(tmpType) + "[" + to_string(arrayType->rank) + "]";
             break;
         }
         case IL2CPP_TYPE_SZARRAY:
         {
+            const Il2CppType *tmpType = (const Il2CppType *)idaAddr2MemAddr((void*)type->data.type);
+            ret = getTypeName(tmpType) + "[]";
             break;
         }
         case IL2CPP_TYPE_PTR:
         {
+            const Il2CppType *tmpType = (const Il2CppType *)idaAddr2MemAddr((void*)type->data.type);
+            ret = getTypeName(tmpType) + "*";
             break;
         }
         default:
@@ -231,27 +280,139 @@ string XIL2CppDumper::getTypeName(const Il2CppType *type) {
     return ret;
 }
 
-void XIL2CppDumper::dumpTypes() {
+void XIL2CppDumper::dump() {
     // dump all define types of first image
-    const Il2CppImageDefinition* imagesDefinitions = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
-    const Il2CppImageDefinition* fisrtImage = imagesDefinitions + 23;
-    const Il2CppTypeDefinition* typeDefinitions = (const Il2CppTypeDefinition*)((const char*)metadata + metadataHeader->typeDefinitionsOffset);
-    const Il2CppTypeDefinition* imageTypeDefinitions = (const Il2CppTypeDefinition*)((const char*)typeDefinitions + fisrtImage->typeStart*
-                                                                                                                    sizeof(Il2CppTypeDefinition));
+    uint32_t imageCount = metadataHeader->imagesCount / sizeof(Il2CppImageDefinition);
+    for (int i = 0; i < imageCount; ++i) {
+        XILOG("[%d] \n", i);
+        const Il2CppImageDefinition* curImage = metadataImageDefinitionTable + i;
+        const Il2CppTypeDefinition* imageTypeDefinitions = (const Il2CppTypeDefinition*)((const char*)metadataTypeDefinitionTable + curImage->typeStart*
+                                                                                                                        sizeof(Il2CppTypeDefinition));
+        int32_t typeDefinitionCount = curImage->typeCount;
+        for (int32_t i = 0; i < typeDefinitionCount; i++) {
+            const  Il2CppTypeDefinition* typeDefinition = imageTypeDefinitions + i;
+            const char* typeName = this->getStringByIndex(typeDefinition->nameIndex);
+            const char* typeNamespace = this->getStringByIndex(typeDefinition->namespaceIndex);
 
-    int32_t typeDefinitionCount = fisrtImage->typeCount;
-    for (int32_t i = 0; i < typeDefinitionCount; i++) {
-        const  Il2CppTypeDefinition* typeDefinition = imageTypeDefinitions + i;
-        const char* typeName = this->getStringFromIndex(typeDefinition->nameIndex);
-        const char* typeNamespace = this->getStringFromIndex(typeDefinition->namespaceIndex);
-        XILOG("====\n[%d] %s %s\n", i, typeName, typeNamespace);
-        if (typeDefinition->parentIndex >= 0) {
-            XILOG("parentIndex:%d\n", 25381 + typeDefinition->parentIndex);
-            XILOG("idx:%lx\n", g_Il2CppTypeTable[typeDefinition->parentIndex]);
-//            const Il2CppType* type =  g_MetadataRegistration->types[typeDefinition->parentIndex];
-            string name = getTypeName(getTypeFromIl2CppTypeTableByIndex(typeDefinition->parentIndex));
+            bool isStruct = false;
+            bool isEnum = false;
+            vector<string> extends;
 
-            XILOG("parent name:%s", name.data());
+            XILOG("====\n[%d] %s %s\n", i, typeName, typeNamespace);
+            if (typeDefinition->parentIndex >= 0) {
+                XILOG("parentIndex:%d\n", 25381 + typeDefinition->parentIndex);
+                XILOG("idx:%lx\n", g_Il2CppTypeTable[typeDefinition->parentIndex]);
+                const Il2CppType* il2CppType = getTypeFromIl2CppTypeTableByIndex(typeDefinition->parentIndex);
+
+                string name = getTypeName(getTypeFromIl2CppTypeTableByIndex(typeDefinition->parentIndex));
+                if (name == "ValueType"){
+                    isStruct = true;
+                } else if (name == "Enum"){
+                    isEnum = true;
+                }else if(name != "object"){
+                    if (!name.empty()){
+                        extends.push_back(name);
+                    }
+                }
+                XILOG("parent name:%s\n", name.data());
+            }
+
+            if (typeDefinition->interfaces_count > 0){
+                for (int i = 0; i < typeDefinition->interfaces_count; ++i) {
+                    const Il2CppType* type = getTypeFromIl2CppTypeTableByIndex(*(metadataInterfaceTable+typeDefinition->interfacesStart + i));
+                    extends.push_back(getTypeName(type).data());
+                    XILOG("has interface start:%d count:%d idx:%d name:%s\n", typeDefinition->interfacesStart, typeDefinition->interfaces_count,*(metadataInterfaceTable+typeDefinition->interfacesStart), getTypeName(type).data());
+                }
+            }
+            write2File(format("\n//NameSpace:%s\n", typeNamespace));
+            uint32_t visibility = typeDefinition->flags & TYPE_ATTRIBUTE_VISIBILITY_MASK;
+
+            switch (visibility){
+                case TYPE_ATTRIBUTE_PUBLIC:
+                case TYPE_ATTRIBUTE_NESTED_PUBLIC:
+                    write2File("public ");
+                    break;
+                case TYPE_ATTRIBUTE_NOT_PUBLIC:
+                case TYPE_ATTRIBUTE_NESTED_FAM_AND_ASSEM:
+                case TYPE_ATTRIBUTE_NESTED_ASSEMBLY:
+                    write2File("internal  ");
+                    break;
+                case TYPE_ATTRIBUTE_NESTED_PRIVATE:
+                    write2File("private  ");
+                    break;
+                case TYPE_ATTRIBUTE_NESTED_FAMILY:
+                    write2File("protected  ");
+                    break;
+                case TYPE_ATTRIBUTE_NESTED_FAM_OR_ASSEM:
+                    write2File("protected internal  ");
+                    break;
+            }
+
+            if ((typeDefinition->flags & TYPE_ATTRIBUTE_ABSTRACT) != 0 && (typeDefinition->flags & TYPE_ATTRIBUTE_SEALED) != 0)
+                write2File("static ");
+            else if ((typeDefinition->flags & TYPE_ATTRIBUTE_INTERFACE) == 0 && (typeDefinition->flags & TYPE_ATTRIBUTE_ABSTRACT) != 0)
+                write2File("abstract ");
+            else if (!isStruct && !isEnum && (typeDefinition->flags & TYPE_ATTRIBUTE_SEALED) != 0)
+                write2File("sealed ");
+            if ((typeDefinition->flags & TYPE_ATTRIBUTE_INTERFACE) != 0)
+                write2File("interface ");
+            else if (isStruct)
+                write2File("struct ");
+            else if (isEnum)
+                write2File("enum ");
+            else
+                write2File("class ");
+
+            write2File(getTypeDefinitionName(typeDefinition));
+
+            if (extends.size() > 0){
+                write2File(" : ");
+                string tmp;
+                for (int i = 0; i < extends.size(); ++i) {
+                    tmp += extends[i];
+                    if (i+1 < extends.size()){
+                        tmp += ", ";
+                    }
+                }
+                write2File(tmp);
+            }
+
+            write2File("\n{");
+
+            // dump field
+            if (typeDefinition->field_count > 0){
+                write2File("\n\t// Fields\n");
+
+            }
+
+            write2File("\n}");
         }
     }
+
+    outfile.close();
 }
+string XIL2CppDumper::format(const char *fmt, ...) {
+    int size = 512;
+    char* buffer = 0;
+    buffer = new char[size];
+    va_list vl;
+    va_start(vl, fmt);
+    int nsize = vsnprintf(buffer, size, fmt, vl);
+    if(size<=nsize){ //fail delete buffer and try again
+        delete[] buffer;
+        buffer = 0;
+        buffer = new char[nsize+1]; //+1 for /0
+        nsize = vsnprintf(buffer, size, fmt, vl);
+    }
+    std::string ret(buffer);
+    va_end(vl);
+    delete[] buffer;
+    return ret;
+}
+
+
+
+void XIL2CppDumper::write2File(string str) {
+    outfile << str;
+}
+
