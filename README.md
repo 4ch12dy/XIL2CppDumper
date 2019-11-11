@@ -1,2 +1,3 @@
 # XIL2CppDumper
-IL2CppDumper writed use C++
+IL2CppDumper writed in C++
+
