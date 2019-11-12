@@ -74,6 +74,7 @@ public:
     char* removeAllChars(char* str, char c);
     inline string format(const char* fmt, ...);
     void write2File(string str);
+    void clean();
 
     // test
     void dumpAllImages();

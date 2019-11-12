@@ -548,6 +548,11 @@ void XIL2CppDumper::write2File(string str) {
     outfile << str;
 }
 
+void XIL2CppDumper::clean() {
+    free(metadata);
+    free(il2cppbin);
+}
+
 // test function
 
 void XIL2CppDumper::dumpAllImages() {
