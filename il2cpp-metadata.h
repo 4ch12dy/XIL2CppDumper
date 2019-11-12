@@ -200,6 +200,55 @@ struct Il2CppStringLiteral
     StringLiteralIndex dataIndex;
 };
 
+typedef struct Il2CppFieldDefinition
+{
+    StringIndex nameIndex;
+    TypeIndex typeIndex;
+    uint32_t token;
+} Il2CppFieldDefinition;
+
+typedef struct Il2CppFieldDefaultValue
+{
+    FieldIndex fieldIndex;
+    TypeIndex typeIndex;
+    DefaultValueDataIndex dataIndex;
+} Il2CppFieldDefaultValue;
+
+typedef struct Il2CppPropertyDefinition
+{
+    StringIndex nameIndex;
+    MethodIndex get;
+    MethodIndex set;
+    uint32_t attrs;
+    uint32_t token;
+} Il2CppPropertyDefinition;
+
+typedef struct Il2CppMethodDefinition
+{
+    StringIndex nameIndex;
+    TypeDefinitionIndex declaringType;
+    TypeIndex returnType;
+    ParameterIndex parameterStart;
+    GenericContainerIndex genericContainerIndex;
+    MethodIndex methodIndex;
+    MethodIndex invokerIndex;
+    MethodIndex reversePInvokeWrapperIndex;
+    RGCTXIndex rgctxStartIndex;
+    int32_t rgctxCount;
+    uint32_t token;
+    uint16_t flags;
+    uint16_t iflags;
+    uint16_t slot;
+    uint16_t parameterCount;
+} Il2CppMethodDefinition;
+
+typedef struct Il2CppParameterDefinition
+{
+    StringIndex nameIndex;
+    uint32_t token;
+    TypeIndex typeIndex;
+} Il2CppParameterDefinition;
+
 
 static inline Il2CppMetadataUsage GetEncodedIndexType(EncodedMethodIndex index)
 {

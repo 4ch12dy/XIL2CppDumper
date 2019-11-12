@@ -20,15 +20,24 @@ private:
     static XIL2CppDumper *m_pInstance;
     void initWithMacho64(void* il2cppbin);
 public:
-    // metadata
+    // metadata field
     void* metadata;
     const Il2CppGlobalMetadataHeader* metadataHeader;
     const Il2CppImageDefinition* metadataImageDefinitionTable;
     const Il2CppTypeDefinition* metadataTypeDefinitionTable;
+    const Il2CppFieldDefinition* metadataFieldDefinitionTable;
+    const Il2CppFieldDefaultValue* metadataFieldDefaultValueTable;
+    const Il2CppPropertyDefinition* metadataPropertyTable;
+    const Il2CppMethodDefinition* metadataMethodDefinitionTable;
+    const Il2CppParameterDefinition* metadataParameterDefinitionTable;
+
     uint32_t* metadataInterfaceTable;
+
+    // il2cpp field
     const Il2CppType** g_Il2CppTypeTable;
     int32_t g_Il2CppTypeTableCount;
 
+    // misc field
     ofstream outfile;
 
     // binary file
@@ -44,16 +53,25 @@ public:
     void* idaAddr2MemAddr(void* idaAddr);
 
     // il2cpp function
-    const char* getStringByIndex(StringIndex index);
+    const Il2CppType* getTypeFromIl2CppTypeTableByIndex(TypeIndex index);
+
+    string typeStringForID(int id);
     string getTypeName(const Il2CppType* type);
     string getTypeDefinitionName(const Il2CppTypeDefinition* typeDefinition);
     string getGenericTypeParams(const Il2CppGenericInst* genericInst);
-    const Il2CppTypeDefinition* getTypeDefinitionByIndex(TypeDefinitionIndex index);
-    const Il2CppType* getTypeFromIl2CppTypeTableByIndex(TypeIndex index);
+    string getMethodAttribute(const Il2CppMethodDefinition* methodDef);
+
+    const char* getStringByIndex(StringIndex index);
     char* getStringLiteralFromIndex(StringIndex index);
-    char* removeAllChars(char* str, char c);
+    const Il2CppTypeDefinition* getTypeDefinitionByIndex(TypeDefinitionIndex index);
+    const Il2CppFieldDefinition* getFieldDefinitionByIndex(FieldIndex index);
+    const Il2CppFieldDefaultValue* getFieldDefaultValueByIndex(DefaultValueIndex index);
+    const Il2CppPropertyDefinition* getPropertyDefinitionByIndex(PropertyIndex index);
+    const Il2CppMethodDefinition* getMethodDefinitionByIndex(MethodIndex index);
+    const Il2CppParameterDefinition* getParameterDefinitionByIndex(ParameterIndex index);
 
     // misc
+    char* removeAllChars(char* str, char c);
     inline string format(const char* fmt, ...);
     void write2File(string str);
 
