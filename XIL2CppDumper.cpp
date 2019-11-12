@@ -10,6 +10,8 @@
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
 
+int munmap(void *pVoid);
+
 XIL2CppDumper* XIL2CppDumper::GetInstance() {
     if(m_pInstance == NULL)
         m_pInstance = new XIL2CppDumper();
@@ -549,8 +551,8 @@ void XIL2CppDumper::write2File(string str) {
 }
 
 void XIL2CppDumper::clean() {
-    free(metadata);
-    free(il2cppbin);
+//    munmap(metadata, len);
+//    munmap(il2cppbin, len);
 }
 
 // test function
