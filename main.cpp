@@ -14,7 +14,7 @@ void printUasge(){
             "+--------------------------------------------------------------------------------------+\n"
             "| Github        | https://github.com/4ch12dy                                           |\n"
             "+--------------------------------------------------------------------------------------+\n"
-            "| Specail thanks to Perfare's https://github.com/Perfare/Il2CppDumper                  |\n"
+            "| Specail thanks to Perfare's Il2CppDumper:https://github.com/Perfare/Il2CppDumper     |\n"
             "+--------------------------------------------------------------------------------------+\n"
             "\n"
     );
