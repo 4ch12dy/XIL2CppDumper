@@ -63,6 +63,7 @@ public:
 
     const char* getStringByIndex(StringIndex index);
     char* getStringLiteralFromIndex(StringIndex index);
+    const Il2CppImageDefinition* getImageDefinitionByIndex(ImageIndex index);
     const Il2CppTypeDefinition* getTypeDefinitionByIndex(TypeDefinitionIndex index);
     const Il2CppFieldDefinition* getFieldDefinitionByIndex(FieldIndex index);
     const Il2CppFieldDefaultValue* getFieldDefaultValueByIndex(DefaultValueIndex index);

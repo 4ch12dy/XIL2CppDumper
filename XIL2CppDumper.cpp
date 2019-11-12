@@ -119,6 +119,11 @@ char* XIL2CppDumper::getStringLiteralFromIndex(StringIndex index) {
     return dstStr;
 }
 
+const Il2CppImageDefinition* XIL2CppDumper::getImageDefinitionByIndex(ImageIndex index) {
+    const Il2CppImageDefinition* imageDef = (const Il2CppImageDefinition*)(metadataImageDefinitionTable + index);
+    return imageDef;
+}
+
 const Il2CppTypeDefinition* XIL2CppDumper::getTypeDefinitionByIndex(TypeDefinitionIndex index) {
     const Il2CppTypeDefinition* typeDef = (const Il2CppTypeDefinition*)(metadataTypeDefinitionTable + index);
     return typeDef;
@@ -294,25 +299,23 @@ string XIL2CppDumper::getMethodAttribute(const Il2CppMethodDefinition *methodDef
 void XIL2CppDumper::dump() {
     // dump all define types of first image
     uint32_t imageCount = metadataHeader->imagesCount / sizeof(Il2CppImageDefinition);
-    for (int i = 0; i < imageCount; ++i) {
-        XILOG("[%d] \n", i);
-        const Il2CppImageDefinition* curImage = metadataImageDefinitionTable + i;
-        const Il2CppTypeDefinition* imageTypeDefinitions = (const Il2CppTypeDefinition*)((const char*)metadataTypeDefinitionTable + curImage->typeStart*
-                                                                                                                        sizeof(Il2CppTypeDefinition));
-        int32_t typeDefinitionCount = curImage->typeCount;
-        for (int32_t imageIndex = 0; imageIndex < typeDefinitionCount; imageIndex++) {
-            const  Il2CppTypeDefinition* typeDefinition = imageTypeDefinitions + imageIndex;
-            const char* typeName = this->getStringByIndex(typeDefinition->nameIndex);
-            const char* typeNamespace = this->getStringByIndex(typeDefinition->namespaceIndex);
+    for (int imageIndex = 0; imageIndex < imageCount; ++imageIndex) {
+        const Il2CppImageDefinition* imageDefinition = getImageDefinitionByIndex(imageIndex);
+
+        uint32_t typeEnd = imageDefinition->typeStart + imageDefinition->typeCount;
+
+        for (int32_t i = imageDefinition->typeStart; i < typeEnd; i++) {
+            const  Il2CppTypeDefinition* typeDefinition = getTypeDefinitionByIndex(i);
+            const char* typeName = getStringByIndex(typeDefinition->nameIndex);
+            const char* typeNamespace = getStringByIndex(typeDefinition->namespaceIndex);
 
             bool isStruct = false;
             bool isEnum = false;
             vector<string> extends;
 
-            XILOG("====\n[%d] %s %s\n", imageIndex, typeName, typeNamespace);
             if (typeDefinition->parentIndex >= 0) {
-                XILOG("parentIndex:%d\n", 25381 + typeDefinition->parentIndex);
-                XILOG("idx:%lx\n", g_Il2CppTypeTable[typeDefinition->parentIndex]);
+//                XILOG("parentIndex:%d\n", 25381 + typeDefinition->parentIndex);
+//                XILOG("idx:%lx\n", g_Il2CppTypeTable[typeDefinition->parentIndex]);
                 const Il2CppType* il2CppType = getTypeFromIl2CppTypeTableByIndex(typeDefinition->parentIndex);
 
                 string name = getTypeName(getTypeFromIl2CppTypeTableByIndex(typeDefinition->parentIndex));
@@ -325,17 +328,17 @@ void XIL2CppDumper::dump() {
                         extends.push_back(name);
                     }
                 }
-                XILOG("parent name:%s\n", name.data());
+//                XILOG("parent name:%s\n", name.data());
             }
 
             if (typeDefinition->interfaces_count > 0){
                 for (int i = 0; i < typeDefinition->interfaces_count; ++i) {
                     const Il2CppType* type = getTypeFromIl2CppTypeTableByIndex(*(metadataInterfaceTable+typeDefinition->interfacesStart + i));
                     extends.push_back(getTypeName(type).data());
-                    XILOG("has interface start:%d count:%d idx:%d name:%s\n", typeDefinition->interfacesStart, typeDefinition->interfaces_count,*(metadataInterfaceTable+typeDefinition->interfacesStart), getTypeName(type).data());
+//                    XILOG("has interface start:%d count:%d idx:%d name:%s\n", typeDefinition->interfacesStart, typeDefinition->interfaces_count,*(metadataInterfaceTable+typeDefinition->interfacesStart), getTypeName(type).data());
                 }
             }
-            write2File(format("\n//NameSpace:%s\n", typeNamespace));
+            write2File(format("\n//NameSpace: %s\n", typeNamespace));
             uint32_t visibility = typeDefinition->flags & TYPE_ATTRIBUTE_VISIBILITY_MASK;
 
             switch (visibility){
@@ -391,6 +394,7 @@ void XIL2CppDumper::dump() {
             write2File("\n{");
 
             // dump field
+//            XILOG("start to dump fields\n");
             if (typeDefinition->field_count > 0){
                 write2File("\n\t// Fields\n");
                 uint32_t  fieldEnd = typeDefinition->fieldStart + typeDefinition->field_count;
@@ -442,7 +446,7 @@ void XIL2CppDumper::dump() {
 
                 }
             }
-
+//            XILOG("start to dump properties\n");
             // dump property
             if (typeDefinition->property_count){
                 write2File("\n\t// Properties\n");
@@ -473,6 +477,7 @@ void XIL2CppDumper::dump() {
                 }
             }
             // dump method
+//            XILOG("start to dump methods\n");
             if (typeDefinition->method_count > 0){
                 write2File("\n\t// Methods\n");
                 uint32_t methodEnd = typeDefinition->methodStart + typeDefinition->method_count;
