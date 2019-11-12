@@ -79,7 +79,7 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     XILOG("g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
 
     // open file for write
-    outfile.open("/Users/zhangshun/xia0/game-sec/XIL2CppDumper/dump/dump.cs", ios::out | ios::trunc);
+    outfile.open("../dump/dump.cs", ios::out | ios::trunc);
 }
 
 // il2cpp function
