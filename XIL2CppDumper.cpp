@@ -24,13 +24,29 @@ void XIL2CppDumper::initWithMacho64(void *il2cppbin) {
     XRange* range = macho64_get_sec_range_by_name(mh, "__DATA", "__mod_init_func");
     XDLOG("macho64 mod_init_func address start:0x%lx end:0x%lx\n", range->start, range->end);
 
-    void** mod_init_func_list = (void**)((char*)il2cppbin + range->start - 0x100000000);
-    void* first_init_func = *mod_init_func_list;
-    XDLOG("mod_init_func first func addr:0x%lx\n", first_init_func);
+    void* init_register_ida_addr = NULL;
 
-    uint32_t * mem_pc = (uint32_t *)((char*)il2cppbin + (uint64_t)first_init_func - 0x100000000);
+    // search feature value to find il2cpp_codegen_register() function
+    uint32_t ** mem_mod_init_func_start = (uint32_t **)idaAddr2MemAddr((void*)range->start);
+    uint32_t ** mem_mod_init_func_end = (uint32_t **)idaAddr2MemAddr((void*)range->end);
 
-    uint32_t* ida_pc = (uint32_t*)first_init_func;
+    for (uint32_t **p = mem_mod_init_func_start; p < mem_mod_init_func_end; ++p) {
+        uint32_t insn_1 = arm64_insn_from_addr(idaAddr2MemAddr(*p));
+        uint32_t insn_2 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 1));
+        uint32_t insn_3 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 2));
+        uint32_t insn_4 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 3));
+        uint32_t insn_5 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 4));
+        uint32_t insn_6 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 5));
+        if (arm64_is_adrp(insn_1) && arm64_is_add_imm(insn_2) && arm64_is_adr(insn_3) && arm64_is_nop(insn_4) && arm64_is_movz(insn_5) && arm64_is_movz(insn_6)){
+            XILOG("found init register func:0x%lx\n", *p);
+            init_register_ida_addr = *p;
+            break;
+        }
+    }
+    assert(init_register_ida_addr);
+
+    uint32_t * mem_pc = (uint32_t *)idaAddr2MemAddr(init_register_ida_addr);
+    uint32_t* ida_pc = (uint32_t*)init_register_ida_addr;
     ida_pc += 2;
     mem_pc += 2;
     uint32_t insn = arm64_insn_from_addr(mem_pc);
@@ -62,6 +78,7 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     il2cppbin = map_file_2_mem(il2cpBinFile);
 
     metadataVersion = metadataHeader->version;
+    XILOG("metadata version:%d\n", metadataVersion);
     metadataImageDefinitionTable = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
     metadataTypeDefinitionTable = (const Il2CppTypeDefinition*)((const char*)metadata + metadataHeader->typeDefinitionsOffset);
     metadataInterfaceTable = (uint32_t*)((const char*)metadata + metadataHeader->interfacesOffset);
@@ -82,7 +99,7 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     g_Il2CppTypeTable = (const Il2CppType**)(idaAddr2MemAddr((void*)g_MetadataRegistration->types));
     g_Il2CppTypeTableCount = (int32_t)(g_MetadataRegistration->typesCount);
 
-    XILOG("metadata version:%d g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", metadataVersion, g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
+    XILOG("g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", metadataVersion, g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
 
     // open file for write
 #if X_DEBUG
