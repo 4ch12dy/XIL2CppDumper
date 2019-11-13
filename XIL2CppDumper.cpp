@@ -61,6 +61,7 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     metadataHeader = (const Il2CppGlobalMetadataHeader*)metadata;
     il2cppbin = map_file_2_mem(il2cpBinFile);
 
+    metadataVersion = metadataHeader->version;
     metadataImageDefinitionTable = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
     metadataTypeDefinitionTable = (const Il2CppTypeDefinition*)((const char*)metadata + metadataHeader->typeDefinitionsOffset);
     metadataInterfaceTable = (uint32_t*)((const char*)metadata + metadataHeader->interfacesOffset);
@@ -78,7 +79,7 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     g_Il2CppTypeTable = (const Il2CppType**)((char*)il2cppbin + (uint64_t)(g_MetadataRegistration->types) - 0x100000000);
     g_Il2CppTypeTableCount = (int32_t)(g_MetadataRegistration->typesCount);
 
-    XILOG("g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
+    XILOG("metadata version:%d g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", metadataVersion, g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
 
     // open file for write
 #if X_DEBUG

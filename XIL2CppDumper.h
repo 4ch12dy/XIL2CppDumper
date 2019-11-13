@@ -25,6 +25,8 @@ public:
     // metadata field
     void* metadata;
     const Il2CppGlobalMetadataHeader* metadataHeader;
+    uint32_t metadataVersion;
+
     const Il2CppImageDefinition* metadataImageDefinitionTable;
     const Il2CppTypeDefinition* metadataTypeDefinitionTable;
     const Il2CppFieldDefinition* metadataFieldDefinitionTable;
