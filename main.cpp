@@ -6,7 +6,7 @@
 void printUasge(){
     printf( "\n\n"
             "+--------------------------------------------------------------------------------------+\n"
-            "| XIL2CppDumper | a tool of C++ version IL2CppDumper power by xia0@2019                |\n"
+            "| XIL2CppDumper | a tool of C++ version IL2CppDumper made by xia0@2019                 |\n"
             "+--------------------------------------------------------------------------------------+\n"
             "| Info          | version: 0.1 support: iOS[arm64] Android[]                           |\n"
             "+--------------------------------------------------------------------------------------+\n"
