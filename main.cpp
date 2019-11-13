@@ -24,13 +24,18 @@ void printUasge(){
 
 int main(int argc, char* argv[]) {
 
+#if X_DEBUG
+    // debug
+    const char* metadataFileFullPath = "../resource/global-metadata.dat";
+    const char* il2cppbinFileFullPath = "../resource/ProductName";
+#else
     if (argc != 3){
         printUasge();
         return 1;
     }
-    // init
     const char* metadataFileFullPath = argv[1];
     const char* il2cppbinFileFullPath = argv[2];
+#endif
 
     XIL2CppDumper* xdump = XIL2CppDumper::GetInstance();
     xdump->initMetadata(metadataFileFullPath, il2cppbinFileFullPath);

@@ -81,7 +81,11 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     XILOG("g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
 
     // open file for write
+#if X_DEBUG
+    outfile.open("../dump/dump.cs", ios::out | ios::trunc);
+#else
     outfile.open("dump.cs", ios::out | ios::trunc);
+#endif
 }
 
 // il2cpp function
