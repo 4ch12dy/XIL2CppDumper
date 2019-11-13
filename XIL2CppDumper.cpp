@@ -76,7 +76,10 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     initWithMacho64(il2cppbin);
     assert(g_CodeRegistration && g_MetadataRegistration);
 
-    g_Il2CppTypeTable = (const Il2CppType**)((char*)il2cppbin + (uint64_t)(g_MetadataRegistration->types) - 0x100000000);
+    g_MethodPointers = (Il2CppMethodPointer*)idaAddr2MemAddr((void*)(g_CodeRegistration->methodPointers));
+    methodPointersCount = g_CodeRegistration->methodPointersCount;
+
+    g_Il2CppTypeTable = (const Il2CppType**)(idaAddr2MemAddr((void*)g_MetadataRegistration->types));
     g_Il2CppTypeTableCount = (int32_t)(g_MetadataRegistration->typesCount);
 
     XILOG("metadata version:%d g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", metadataVersion, g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
@@ -90,15 +93,42 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
 }
 
 // il2cpp function
-const Il2CppType* XIL2CppDumper::getTypeFromIl2CppTypeTableByIndex(TypeIndex index) {
-    assert(g_Il2CppTypeTable && index >=0 && index <= g_Il2CppTypeTableCount);
-    return (const Il2CppType*)((char*)il2cppbin + (uint64_t)(g_Il2CppTypeTable[index]) - 0x100000000);
+void* XIL2CppDumper::RAW2RVA(uint64_t raw) {
+    return (void*)(raw + 0x100000000);
+}
+
+uint64_t XIL2CppDumper::RVA2RAW(void *rva) {
+    return (uint64_t)((uint64_t)rva - 0x100000000);
 }
 
 void* XIL2CppDumper::idaAddr2MemAddr(void *idaAddr) {
-    void* mem = (void*)((char*)il2cppbin + (uint64_t)idaAddr - 0x100000000);
+    void* mem = (void*)((char*)il2cppbin + RVA2RAW(idaAddr));
 //    XDLOG("ida address:0x%lx il2cppbin address:0x%lx mem address:0x%lx\n", idaAddr, il2cppbin, mem);
     return mem;
+}
+
+const Il2CppType* XIL2CppDumper::getTypeFromIl2CppTypeTableByIndex(TypeIndex index) {
+    assert(g_Il2CppTypeTable && index >=0 && index <= g_Il2CppTypeTableCount);
+    void* typeIDAAddr = (void*)g_Il2CppTypeTable[index];
+    return (const Il2CppType*)(idaAddr2MemAddr(typeIDAAddr));
+}
+
+Il2CppMethodPointer XIL2CppDumper::getMethodPointerFromMethodPointersByIndex(MethodIndex index) {
+    assert(g_MethodPointers && index >=0 && index <= methodPointersCount);
+    Il2CppMethodPointer func = g_MethodPointers[index];
+    void* funcAddr = (void*)func;
+    return (Il2CppMethodPointer)idaAddr2MemAddr(funcAddr);
+}
+
+void* XIL2CppDumper::getMethodPointerIDAValueByIndex(MethodIndex index) {
+    if (index == -1){
+        // this Class all method index will = -1, I do not kown why now
+        return (void*)-1;
+    }
+
+    assert(g_MethodPointers && index >=0 && index <= methodPointersCount);
+
+    return (void*)g_MethodPointers[index];
 }
 
 // metadata function
@@ -509,10 +539,11 @@ void XIL2CppDumper::dump() {
                         if (j + 1 < methodDefinition->parameterCount){
                             write2File(", ");
                         }
-                        // dump offset
-
                     }
-                    write2File(");\n");
+                    write2File(");");
+                    // dump offset
+                    void* methodPointer = getMethodPointerIDAValueByIndex(methodDefinition->methodIndex);
+                    write2File(format(" // RVA: 0x%lX Offset:0x%lx\n", methodPointer, RVA2RAW(methodPointer)));
                 }
 
             }

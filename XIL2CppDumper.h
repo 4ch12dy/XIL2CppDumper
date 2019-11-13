@@ -40,6 +40,8 @@ public:
     // il2cpp field
     const Il2CppType** g_Il2CppTypeTable;
     int32_t g_Il2CppTypeTableCount;
+    Il2CppMethodPointer * g_MethodPointers;
+    uint32_t methodPointersCount;
 
     // misc field
     ofstream outfile;
@@ -55,9 +57,13 @@ public:
 
     // execute format file
     void* idaAddr2MemAddr(void* idaAddr);
+    uint64_t RVA2RAW(void* rva); // convert ida adress to file offset
+    void* RAW2RVA(uint64_t raw); // convert file offset to ida address
 
     // il2cpp function
     const Il2CppType* getTypeFromIl2CppTypeTableByIndex(TypeIndex index);
+    Il2CppMethodPointer getMethodPointerFromMethodPointersByIndex(MethodIndex index);
+    void* getMethodPointerIDAValueByIndex(MethodIndex index);
 
     string typeStringForID(int id);
     string getTypeName(const Il2CppType* type);

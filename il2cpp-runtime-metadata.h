@@ -257,6 +257,4 @@ typedef struct Il2CppMetadataRegistration
     void** const* metadataUsages;
 } Il2CppMetadataRegistration;
 
-
-
 #endif //XIL2CPPDUMPER_IL2CPP_RUNTIME_METADATA_H
