@@ -38,8 +38,8 @@ int main(int argc, char* argv[]) {
 
 #if X_DEBUG
     // debug
-    const char* metadataFileFullPath = "../resource/global-metadata.dat";
-    const char* il2cppbinFileFullPath = "../resource/ProductName";
+    const char* metadataFileFullPath = IL2CPP_TEST_METADATA;
+    const char* il2cppbinFileFullPath = IL2CPP_TEST_BIN;
 #else
     if (argc != 3){
         printUasge();
@@ -51,8 +51,8 @@ int main(int argc, char* argv[]) {
 
     XIL2CppDumper* xdump = XIL2CppDumper::GetInstance();
     xdump->initMetadata(metadataFileFullPath, il2cppbinFileFullPath);
-//    xdump->dump();
-    xdump->dumpAllImages();
+    xdump->dump();
+//    xdump->dumpAllImages();
     xdump->clean();
     return 0;
 }
