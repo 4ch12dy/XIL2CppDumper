@@ -350,26 +350,24 @@ void XIL2CppDumper::dump() {
     uint32_t imageCount = metadataHeader->imagesCount / sizeof(Il2CppImageDefinition);
     for (int imageIndex = 0; imageIndex < imageCount; ++imageIndex) {
         const Il2CppImageDefinition* imageDefinition = getImageDefinitionByIndex(imageIndex);
-        DLOG("[%d] imageName:%s typeCount:%d\n", imageIndex, getStringByIndex(imageDefinition->nameIndex), imageDefinition->typeCount);
-
         uint32_t typeEnd = imageDefinition->typeStart + imageDefinition->typeCount;
+
+        DLOG("[%d] image name:%s type count:%d\n", imageIndex, getStringByIndex(imageDefinition->nameIndex), imageDefinition->typeCount);
         write2File(format("\n//[%d] imageName:%s typeCount:%d\n", imageIndex, getStringByIndex(imageDefinition->nameIndex), imageDefinition->typeCount));
 
         for (int32_t i = imageDefinition->typeStart; i < typeEnd; i++) {
             const  Il2CppTypeDefinition* typeDefinition = getTypeDefinitionByIndex(i);
             const char* typeName = getStringByIndex(typeDefinition->nameIndex);
             const char* typeNamespace = getStringByIndex(typeDefinition->namespaceIndex);
-
+            DLOG("\ttype index:%d name:%s namespace:%s\n", i, typeName, typeNamespace);
             bool isStruct = false;
             bool isEnum = false;
             vector<string> extends;
 
             if (typeDefinition->parentIndex >= 0) {
-//                XILOG("parentIndex:%d\n", 25381 + typeDefinition->parentIndex);
-//                XILOG("idx:%lx\n", g_Il2CppTypeTable[typeDefinition->parentIndex]);
                 const Il2CppType* il2CppType = getTypeFromIl2CppTypeTableByIndex(typeDefinition->parentIndex);
-
                 string name = getTypeName(getTypeFromIl2CppTypeTableByIndex(typeDefinition->parentIndex));
+                DLOG("\t\tparent index:%d name:%s\n", typeDefinition->parentIndex, name.data());
                 if (name == "ValueType"){
                     isStruct = true;
                 } else if (name == "Enum"){
@@ -379,14 +377,14 @@ void XIL2CppDumper::dump() {
                         extends.push_back(name);
                     }
                 }
-//                XILOG("parent name:%s\n", name.data());
             }
 
             if (typeDefinition->interfaces_count > 0){
                 for (int i = 0; i < typeDefinition->interfaces_count; ++i) {
                     const Il2CppType* type = getTypeFromIl2CppTypeTableByIndex(*(metadataInterfaceTable+typeDefinition->interfacesStart + i));
-                    extends.push_back(getTypeName(type).data());
-//                    XILOG("has interface start:%d count:%d idx:%d name:%s\n", typeDefinition->interfacesStart, typeDefinition->interfaces_count,*(metadataInterfaceTable+typeDefinition->interfacesStart), getTypeName(type).data());
+                    string interfaceName = getTypeName(type).data();
+                    extends.push_back(interfaceName);
+                    DLOG("\t\tinterface index:%d count:%d name:%s\n", i, typeDefinition->interfaces_count, interfaceName.data());
                 }
             }
             write2File(format("\n//NameSpace: %s\n", typeNamespace));
@@ -445,7 +443,6 @@ void XIL2CppDumper::dump() {
             write2File("\n{");
 
             // dump field
-//            XILOG("start to dump fields\n");
             if (typeDefinition->field_count > 0){
                 write2File("\n\t// Fields\n");
                 uint32_t  fieldEnd = typeDefinition->fieldStart + typeDefinition->field_count;
@@ -488,7 +485,8 @@ void XIL2CppDumper::dump() {
                             write2File("readonly ");
                     }
 
-                    write2File(format("%s %s", getTypeName(fieldType).data(),getStringByIndex(fieldDef->nameIndex), fieldType->type));
+                    write2File(format("%s %s", getTypeName(fieldType).data(),getStringByIndex(fieldDef->nameIndex)));
+                    DLOG("\t\tfield: %s %s\n", getTypeName(fieldType).data(), getStringByIndex(fieldDef->nameIndex));
                     if (fieldDefaultValue && fieldDefaultValue->dataIndex != -1){
                         // need improve it if I have time, here we do not dump the field default value
                         // write2File("; // this field has default value, but I do not dump now\n");
@@ -497,7 +495,6 @@ void XIL2CppDumper::dump() {
 
                 }
             }
-//            XILOG("start to dump properties\n");
             // dump property
             if (typeDefinition->property_count){
                 write2File("\n\t// Properties\n");
@@ -511,11 +508,13 @@ void XIL2CppDumper::dump() {
                         write2File(getMethodAttribute(methodDefinition).data());
                         const Il2CppType* propertyType = getTypeFromIl2CppTypeTableByIndex(methodDefinition->returnType);
                         write2File(format("%s %s { ", getTypeName(propertyType).data(), getStringByIndex(propertyDefinition->nameIndex)));
+                        DLOG("\t\tproperty: %s %s [get]\n", getTypeName(propertyType).data(), getStringByIndex(propertyDefinition->nameIndex));
                     }else if(propertyDefinition->set >= 0){
                         const Il2CppMethodDefinition* methodDefinition = getMethodDefinitionByIndex(typeDefinition->methodStart + propertyDefinition->set);
                         write2File(getMethodAttribute(methodDefinition).data());
                         const Il2CppType* propertyType = getTypeFromIl2CppTypeTableByIndex(methodDefinition->returnType);
                         write2File(format("%s %s { ", getTypeName(propertyType).data(), getStringByIndex(propertyDefinition->nameIndex)));
+                        DLOG("\t\tproperty: %s %s [set]\n", getTypeName(propertyType).data(), getStringByIndex(propertyDefinition->nameIndex));
                     }
 
                     if (propertyDefinition->get >= 0){
@@ -528,7 +527,6 @@ void XIL2CppDumper::dump() {
                 }
             }
             // dump method
-//            XILOG("start to dump methods\n");
             if (typeDefinition->method_count > 0){
                 write2File("\n\t// Methods\n");
                 uint32_t methodEnd = typeDefinition->methodStart + typeDefinition->method_count;
@@ -540,6 +538,7 @@ void XIL2CppDumper::dump() {
                     const Il2CppType* methodReturnType = getTypeFromIl2CppTypeTableByIndex(methodDefinition->returnType);
                     const  char* methodName = getStringByIndex(methodDefinition->nameIndex);
                     write2File(format("%s %s(", getTypeName(methodReturnType).data(), methodName));
+                    DLOG("\t\tmethod: %s %s();\n", getTypeName(methodReturnType).data(), methodName);
                     for (int j = 0; j < methodDefinition->parameterCount; ++j) {
                         string parameterStr = "";
                         const Il2CppParameterDefinition* parameterDefinition = getParameterDefinitionByIndex(methodDefinition->parameterStart + j);
@@ -560,6 +559,7 @@ void XIL2CppDumper::dump() {
                     // dump offset
                     void* methodPointer = getMethodPointerIDAValueByIndex(methodDefinition->methodIndex);
                     write2File(format(" // RVA: 0x%lX Offset:0x%lx\n", methodPointer, RVA2RAW(methodPointer)));
+                    DLOG("\t\t\t RVA: 0x%lX Offset:0x%lx\n", methodPointer, RVA2RAW(methodPointer));
                 }
 
             }
