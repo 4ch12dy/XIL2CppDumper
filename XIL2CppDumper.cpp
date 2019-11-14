@@ -5,8 +5,6 @@
 #include <vector>
 #include "XIL2CppDumper.h"
 #include "XB1nLib/XB1nLib.h"
-#include "il2cpp-runtime-metadata.h"
-#include "il2cpp-tabledefs.h"
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
 
@@ -68,7 +66,7 @@ void XIL2CppDumper::initWithMacho64(void *il2cppbin) {
     g_CodeRegistration = (Il2CppCodeRegistration*)((char*)il2cppbin + (uint64_t)ida_g_CodeRegistration - 0x100000000);
     g_MetadataRegistration = (Il2CppMetadataRegistration*)((char*)il2cppbin + (uint64_t)ida_g_MetadataRegistration - 0x100000000);
 
-    XDLOG("g_CodeRegistration methodPointersCount:%ld\n", g_CodeRegistration->methodPointersCount);
+    XDLOG("g_CodeRegistration methodPointersCount:%d\n", g_CodeRegistration->methodPointersCount);
 }
 
 void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinFile) {
@@ -220,7 +218,7 @@ string XIL2CppDumper::typeStringForID(int id) {
     return typeDic[index];
 }
 string XIL2CppDumper::getTypeDefinitionName(const Il2CppTypeDefinition *typeDefinition) {
-    string ret = "";
+    string ret;
     if (typeDefinition->declaringTypeIndex != -1){
         ret += getTypeName(getTypeFromIl2CppTypeTableByIndex(typeDefinition->declaringTypeIndex)) + ".";
     }

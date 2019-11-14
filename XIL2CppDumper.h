@@ -8,8 +8,6 @@
 #include <string>
 #include <unistd.h>
 #include <fstream>
-#include "il2cpp-metadata.h"
-#include "il2cpp-runtime-metadata.h"
 #include "xia0.h"
 
 using namespace std;
