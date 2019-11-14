@@ -51,8 +51,8 @@ int main(int argc, char* argv[]) {
 
     XIL2CppDumper* xdump = XIL2CppDumper::GetInstance();
     xdump->initMetadata(metadataFileFullPath, il2cppbinFileFullPath);
-    xdump->dump();
-//    xdump->dumpAllImages();
+//    xdump->dump();
+    xdump->dumpAllImages();
     xdump->clean();
     return 0;
 }
