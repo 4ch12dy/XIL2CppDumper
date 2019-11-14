@@ -14,6 +14,12 @@
 
 using namespace std;
 
+#if X_DEBUG
+#define DLOG(log, ...)  printf("[debug] " log, ##__VA_ARGS__)
+#else
+#define DLOG(log, ...)
+#endif
+
 class XIL2CppDumper
 {
 
