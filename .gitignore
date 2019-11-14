@@ -1,3 +1,4 @@
 .DS_Store
 cmake-build-debug/
 dump/
+il2cppTests/
