@@ -37,12 +37,13 @@ void XIL2CppDumper::initWithMacho64(void *il2cppbin) {
         uint32_t insn_4 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 3));
         uint32_t insn_5 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 4));
         uint32_t insn_6 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 5));
-        if (arm64_is_adrp(insn_1) && arm64_is_add_imm(insn_2) && arm64_is_adr(insn_3) && arm64_is_nop(insn_4) && arm64_is_movz(insn_5) && arm64_is_movz(insn_6)){
+        if ((metadataVersion == 24) && arm64_is_adrp(insn_1) && arm64_is_add_imm(insn_2) && arm64_is_adr(insn_3) && arm64_is_nop(insn_4) && arm64_is_movz(insn_5) && arm64_is_movz(insn_6)){
             XILOG("found init register func:0x%lx\n", *p);
             init_register_ida_addr = *p;
             break;
         }
     }
+
     assert(init_register_ida_addr);
 
     uint32_t * mem_pc = (uint32_t *)idaAddr2MemAddr(init_register_ida_addr);
@@ -99,7 +100,7 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     g_Il2CppTypeTable = (const Il2CppType**)(idaAddr2MemAddr((void*)g_MetadataRegistration->types));
     g_Il2CppTypeTableCount = (int32_t)(g_MetadataRegistration->typesCount);
 
-    XILOG("g_Il2CppTypeTable=%lx g_Il2CppTypeTableCount=%d\n", metadataVersion, g_Il2CppTypeTable ,g_Il2CppTypeTableCount );
+    XILOG("g_Il2CppTypeTable=0x%lx g_Il2CppTypeTableCount=%d\n", g_MetadataRegistration->types ,g_Il2CppTypeTableCount );
 
     // open file for write
 #if X_DEBUG
@@ -211,7 +212,7 @@ string XIL2CppDumper::typeStringForID(int id) {
     int index = id;
 //    XILOG("-------%d-------\n", index);
 //    assert(0 < index && index <= 14 || index == 19 || index == 22 || index == 24 || index == 25 || index == 28 || index == 30);
-
+    assert(id <= 30 && id >=0);
     string typeDic[31] = {"","void", "bool", "char", "sbyte", "byte", "short", "ushort", "int", "uint", "long", "ulong", "float", "double", "string", \
                           "","", "", "", \
                           "T", "", "", \
@@ -353,8 +354,10 @@ void XIL2CppDumper::dump() {
     uint32_t imageCount = metadataHeader->imagesCount / sizeof(Il2CppImageDefinition);
     for (int imageIndex = 0; imageIndex < imageCount; ++imageIndex) {
         const Il2CppImageDefinition* imageDefinition = getImageDefinitionByIndex(imageIndex);
+        DLOG("[%d] imageName:%s typeCount:%d\n", imageIndex, getStringByIndex(imageDefinition->nameIndex), imageDefinition->typeCount);
 
         uint32_t typeEnd = imageDefinition->typeStart + imageDefinition->typeCount;
+        write2File(format("\n//[%d] imageName:%s typeCount:%d\n", imageIndex, getStringByIndex(imageDefinition->nameIndex), imageDefinition->typeCount));
 
         for (int32_t i = imageDefinition->typeStart; i < typeEnd; i++) {
             const  Il2CppTypeDefinition* typeDefinition = getTypeDefinitionByIndex(i);
@@ -617,18 +620,19 @@ void XIL2CppDumper::clean() {
 
 void XIL2CppDumper::dumpAllImages() {
     // dump all image name
+
     const Il2CppImageDefinition* imagesDefinitions = (const Il2CppImageDefinition*)((const char*)metadata + metadataHeader->imagesOffset);
     int32_t imageCount = metadataHeader->imagesCount / sizeof(Il2CppImageDefinition);
     for (int32_t imageIndex = 0; imageIndex < imageCount; imageIndex++)
     {
         const Il2CppImageDefinition* imageDefinition = imagesDefinitions + imageIndex;
         const char* imageName = this->getStringByIndex(imageDefinition->nameIndex);
-        XILOG("[%d] image name :%s\n", imageIndex, imageName);
+        XILOG("[%d] image name :%s type start:%d type count:%d\n", imageIndex, imageName,imageDefinition->typeStart ,imageDefinition->typeCount);
     }
 }
 
 void XIL2CppDumper::dumpString() {
-    int usageListCount = this->metadataHeader->metadataUsageListsCount / sizeof(Il2CppMetadataUsageList);
+    int usageListCount = metadataHeader->metadataUsageListsCount / sizeof(Il2CppMetadataUsageList);
     for (int n = 0; n < usageListCount; ++n) {
         uint32_t index = n;
         if(n != 7967){
