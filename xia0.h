@@ -5,7 +5,18 @@
 #ifndef XIL2CPPDUMPER_XIA0_H
 #define XIL2CPPDUMPER_XIA0_H
 
+/*  is open debug ?
+ *  1   open
+ *  0   close
+ */
 #define X_DEBUG 1
+
+/*
+ *  1: [strict] assert() check
+ *  2: [normal] if else check, if failed, return null or ""
+ *
+ */
+#define DEBUG_MODE  1
 
 // v24.0
 #define IL2CPP_TEST_V24_0_METADATA  "../il2cppTests/24.0/global-metadata.dat"
@@ -15,12 +26,12 @@
 #define IL2CPP_TEST_V24_1_BIN       "../il2cppTests/24.1/ProductName"
 
 //====================current test version====================
-#define IL2CPP_TEST_METADATA        IL2CPP_TEST_V24_1_METADATA
-#define IL2CPP_TEST_BIN             IL2CPP_TEST_V24_1_BIN
+#define IL2CPP_TEST_METADATA        IL2CPP_TEST_V24_0_METADATA
+#define IL2CPP_TEST_BIN             IL2CPP_TEST_V24_0_BIN
 
 
 // ====================current running version====================
-#define IL2CPP_VERSION IL2CPP_VERSION_24_DOT_1
+#define IL2CPP_VERSION IL2CPP_VERSION_24_DOT_0
 
 // all support il2cpp version : http://1vr.cn/?p=568
 /*

@@ -147,7 +147,19 @@ void* XIL2CppDumper::getMethodPointerIDAValueByIndex(MethodIndex index) {
 
 // metadata function
 const char* XIL2CppDumper::getStringByIndex(StringIndex index) {
+
+#if DEBUG_MODE == 1
+
     assert(index <= metadataHeader->stringCount);
+
+#elif DEBUG_MODE == 2
+
+    if(index > metadataHeader->stringCount){
+        return "";
+    }
+
+#endif
+
     const char* strings = ((const char*) metadata +  metadataHeader->stringOffset) + index;
     return strings;
 }
@@ -206,9 +218,19 @@ const Il2CppParameterDefinition* XIL2CppDumper::getParameterDefinitionByIndex(Pa
 
 string XIL2CppDumper::typeStringForID(int id) {
     int index = id;
-//    XILOG("-------%d-------\n", index);
-//    assert(0 < index && index <= 14 || index == 19 || index == 22 || index == 24 || index == 25 || index == 28 || index == 30);
+
+#if DEBUG_MODE == 1
+
     assert(id <= 30 && id >=0);
+
+#elif DEBUG_MODE == 2
+
+    if (id > 30 || id < 0){
+        return "ErrorType";
+    }
+
+#endif
+
     string typeDic[31] = {"","void", "bool", "char", "sbyte", "byte", "short", "ushort", "int", "uint", "long", "ulong", "float", "double", "string", \
                           "","", "", "", \
                           "T", "", "", \
