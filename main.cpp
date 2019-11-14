@@ -7,7 +7,7 @@ void printUasge(){
             "+--------------------------------------------------------------------------------------+\n"
             "| XIL2CppDumper | a tool of C++ version IL2CppDumper made by xia0@2019                 |\n"
             "+--------------------------------------------------------------------------------------+\n"
-            "| Info          | version: 0.1 support: iOS[arm64] Android[]                           |\n"
+            "| Info          | version: 0.1 support: iOS[arm64] Android[] il2cpp[24.1/]             |\n"
             "+--------------------------------------------------------------------------------------+\n"
             "| Usage         | XIL2CppDumper unity_metadata_file_path il2cpp_so_or_macho_file_path  |\n"
             "+--------------------------------------------------------------------------------------+\n"
