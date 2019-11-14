@@ -10,8 +10,6 @@
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
 
-int munmap(void *pVoid);
-
 XIL2CppDumper* XIL2CppDumper::GetInstance() {
     if(m_pInstance == NULL)
         m_pInstance = new XIL2CppDumper();
