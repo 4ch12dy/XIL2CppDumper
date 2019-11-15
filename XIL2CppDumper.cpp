@@ -150,7 +150,7 @@ const char* XIL2CppDumper::getStringByIndex(StringIndex index) {
 
 #if DEBUG_MODE == 1
 
-    assert(index <= metadataHeader->stringCount);
+    assert(index <= metadataHeader->stringCount && index >= 0);
 
 #elif DEBUG_MODE == 2
 
