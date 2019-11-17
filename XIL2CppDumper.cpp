@@ -653,15 +653,12 @@ void XIL2CppDumper::dumpString() {
     int usageListCount = metadataHeader->metadataUsageListsCount / sizeof(Il2CppMetadataUsageList);
     for (int n = 0; n < usageListCount; ++n) {
         uint32_t index = n;
-        if(n != 7967){
-            continue;
-        }
+
         assert(this->metadataHeader->metadataUsageListsCount >= 0 && index <= static_cast<uint32_t>(this->metadataHeader->metadataUsageListsCount));
 
         const Il2CppMetadataUsageList* metadataUsageLists = MetadataOffset<const Il2CppMetadataUsageList*>(this->metadata, this->metadataHeader->metadataUsageListsOffset, index);
         uint32_t start = metadataUsageLists->start;
         uint32_t count = metadataUsageLists->count;
-        XILOG("start:%d count:%d\n", start, count);
         for (uint32_t i = 0; i < count; i++)
         {
             uint32_t offset = start + i;
