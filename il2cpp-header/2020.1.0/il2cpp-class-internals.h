@@ -1,6 +1,5 @@
 #pragma once
 
-#include "il2cpp-config.h"
 
 #if !IL2CPP_TINY_WITHOUT_DEBUGGER
 
