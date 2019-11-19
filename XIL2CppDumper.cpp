@@ -14,60 +14,6 @@ XIL2CppDumper* XIL2CppDumper::GetInstance() {
     return m_pInstance;
 }
 
-void XIL2CppDumper::initWithMacho64(void *il2cppbin) {
-    mach_header_64* mh = (mach_header_64*)il2cppbin;
-    XDLOG("macho header magic number:%X\n", mh->magic);
-    XRange* range = macho64_get_sec_range_by_name(mh, "__DATA", "__mod_init_func");
-    XDLOG("macho64 mod_init_func address start:0x%lx end:0x%lx\n", range->start, range->end);
-
-    void* init_register_ida_addr = NULL;
-
-    // search feature value to find il2cpp_codegen_register() function
-    uint32_t ** mem_mod_init_func_start = (uint32_t **)idaAddr2MemAddr((void*)range->start);
-    uint32_t ** mem_mod_init_func_end = (uint32_t **)idaAddr2MemAddr((void*)range->end);
-
-    for (uint32_t **p = mem_mod_init_func_start; p < mem_mod_init_func_end; ++p) {
-        uint32_t insn_1 = arm64_insn_from_addr(idaAddr2MemAddr(*p));
-        uint32_t insn_2 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 1));
-        uint32_t insn_3 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 2));
-        uint32_t insn_4 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 3));
-        uint32_t insn_5 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 4));
-        uint32_t insn_6 = arm64_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr(*p) + 5));
-        if ((metadataVersion == 24) && arm64_is_adrp(insn_1) && arm64_is_add_imm(insn_2) && arm64_is_adr(insn_3) && arm64_is_nop(insn_4) && arm64_is_movz(insn_5) && arm64_is_movz(insn_6)){
-            XILOG("found init register func:0x%lx\n", *p);
-            init_register_ida_addr = *p;
-            break;
-        }
-    }
-
-    assert(init_register_ida_addr);
-
-    uint32_t * mem_pc = (uint32_t *)idaAddr2MemAddr(init_register_ida_addr);
-    uint32_t* ida_pc = (uint32_t*)init_register_ida_addr;
-    ida_pc += 2;
-    mem_pc += 2;
-    uint32_t insn = arm64_insn_from_addr(mem_pc);
-    void* ida_s_Il2CppCodegenRegistration = arm64_adr_decode(ida_pc, insn);
-    XDLOG("decode s_Il2CppCodegenRegistration adrress from bin:0x%lx\n", ida_s_Il2CppCodegenRegistration);
-
-    ida_pc = (uint32_t*)ida_s_Il2CppCodegenRegistration;
-    mem_pc = (uint32_t *)((char*)il2cppbin + (uint64_t)ida_s_Il2CppCodegenRegistration - 0x100000000);
-    insn = arm64_insn_from_addr(mem_pc);
-    void* ida_g_CodeRegistration = (void*)((uint64_t)arm64_adrp_decode(ida_pc, insn) + arm64_add_decode_imm(arm64_insn_from_addr(mem_pc+1)));
-    XDLOG("decode g_CodeRegistration adrress from bin:0x%lx\n", ida_g_CodeRegistration);
-
-    ida_pc += 2;
-    mem_pc += 2;
-    insn = arm64_insn_from_addr(mem_pc);
-    void* ida_g_MetadataRegistration = (void*)((uint64_t)arm64_adrp_decode(ida_pc, insn) + arm64_add_decode_imm(arm64_insn_from_addr(mem_pc+1)));
-    XDLOG("decode g_MetadataRegistration adrress from bin:0x%lx\n", ida_g_MetadataRegistration);
-
-    // init done
-    g_CodeRegistration = (Il2CppCodeRegistration*)((char*)il2cppbin + (uint64_t)ida_g_CodeRegistration - 0x100000000);
-    g_MetadataRegistration = (Il2CppMetadataRegistration*)((char*)il2cppbin + (uint64_t)ida_g_MetadataRegistration - 0x100000000);
-
-    XDLOG("g_CodeRegistration methodPointersCount:%d\n", g_CodeRegistration->methodPointersCount);
-}
 
 void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinFile) {
     metadata = map_file_2_mem(metadataFile);
@@ -86,8 +32,11 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     metadataParameterDefinitionTable = (const Il2CppParameterDefinition*)((const char*)metadata + metadataHeader->parametersOffset);
 
     // should check bin file is iOS Macho64 or android so ELF
-    // here is iOS Macho64
-    initWithMacho64(il2cppbin);
+    binParser = new IL2CppBinParser(il2cppbin, metadataVersion);
+
+    g_CodeRegistration = (Il2CppCodeRegistration*)binParser->codeRegistration;
+    g_MetadataRegistration = (Il2CppMetadataRegistration*)binParser->metadataRegistration;
+
     assert(g_CodeRegistration && g_MetadataRegistration);
 
     g_MethodPointers = (Il2CppMethodPointer*)idaAddr2MemAddr((void*)(g_CodeRegistration->methodPointers));
@@ -108,17 +57,15 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
 
 // il2cpp function
 void* XIL2CppDumper::RAW2RVA(uint64_t raw) {
-    return (void*)(raw + 0x100000000);
+    return binParser->RAW2RVA(raw);
 }
 
 uint64_t XIL2CppDumper::RVA2RAW(void *rva) {
-    return (uint64_t)((uint64_t)rva - 0x100000000);
+    return binParser->RVA2RAW(rva);
 }
 
 void* XIL2CppDumper::idaAddr2MemAddr(void *idaAddr) {
-    void* mem = (void*)((char*)il2cppbin + RVA2RAW(idaAddr));
-//    XDLOG("ida address:0x%lx il2cppbin address:0x%lx mem address:0x%lx\n", idaAddr, il2cppbin, mem);
-    return mem;
+    return binParser->idaAddr2MemAddr(idaAddr);
 }
 
 const Il2CppType* XIL2CppDumper::getTypeFromIl2CppTypeTableByIndex(TypeIndex index) {

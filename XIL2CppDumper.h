@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <fstream>
 #include "xia0.h"
+#import "IL2CppBinParser.h"
 
 using namespace std;
 
@@ -24,7 +25,6 @@ class XIL2CppDumper
 private:
     XIL2CppDumper(){}
     static XIL2CppDumper *m_pInstance;
-    void initWithMacho64(void* il2cppbin);
 public:
     // metadata field
     void* metadata;
@@ -51,6 +51,7 @@ public:
     ofstream outfile;
 
     // binary file
+    IL2CppBinParser* binParser;
     void* il2cppbin;
     const Il2CppCodeRegistration* g_CodeRegistration;
     const Il2CppMetadataRegistration* g_MetadataRegistration;
