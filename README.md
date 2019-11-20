@@ -16,7 +16,7 @@ IL2CppDumper writed in C++
 +--------------------------------------------------------------------------------------+
 | XIL2CppDumper | a tool of C++ version IL2CppDumper made by xia0@2019                 |
 +--------------------------------------------------------------------------------------+
-| Info          | version: 0.1 support: iOS[arm64] Android[]                           |
+| Info          | version: 0.1 support: iOS[arm64] Android[arm64] il2cpp[24.1/24.0]    |
 +--------------------------------------------------------------------------------------+
 | Usage         | XIL2CppDumper unity_metadata_file_path il2cpp_so_or_macho_file_path  |
 +--------------------------------------------------------------------------------------+
