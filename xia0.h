@@ -16,22 +16,23 @@
  *  2: [normal] if else check, if failed, return null or ""
  *
  */
-#define DEBUG_MODE  1
+#define DEBUG_MODE  2
 
 // v24.0
-#define IL2CPP_TEST_V24_0_METADATA  "../il2cppTests/24.0/global-metadata.dat"
-#define IL2CPP_TEST_V24_0_BIN       "../il2cppTests/24.0/speedmobile.decrypted"
-// v24.1
-#define IL2CPP_TEST_V24_1_METADATA  "../il2cppTests/24.1/global-metadata.dat"
-#define IL2CPP_TEST_V24_1_BIN       "../il2cppTests/24.1/ProductName"
+#define IL2CPP_TEST_METADATA_v24_0  "../il2cppTests/24.0/speedmobile/global-metadata.dat"
+#define IL2CPP_TEST_BIN_v24_0       "../il2cppTests/24.0/speedmobile/speedmobile.decrypted"
 
-//====================current test version====================
-#define IL2CPP_TEST_METADATA        IL2CPP_TEST_V24_0_METADATA
-#define IL2CPP_TEST_BIN             IL2CPP_TEST_V24_0_BIN
+// v24.1
+#define IL2CPP_TEST_METADATA_v24_1  "../il2cppTests/android/24.1/Hero/global-metadata.dat"
+#define IL2CPP_TEST_BIN_v24_1       "../il2cppTests/android/24.1/Hero/libil2cpp.so"
+
+//====================current test version====================hero-demo
+#define IL2CPP_TEST_METADATA        IL2CPP_TEST_METADATA_v24_1
+#define IL2CPP_TEST_BIN             IL2CPP_TEST_BIN_v24_1
 
 
 // ====================current running version====================
-#define IL2CPP_VERSION IL2CPP_VERSION_24_DOT_0
+#define IL2CPP_VERSION IL2CPP_VERSION_24_DOT_1
 
 // all support il2cpp version : http://1vr.cn/?p=568
 /*
