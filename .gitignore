@@ -1,4 +1,5 @@
 .DS_Store
 cmake-build-debug/
 dump/
-il2cppTests/
+il2cppTests/*
+!il2cppTests/.gitkeep
