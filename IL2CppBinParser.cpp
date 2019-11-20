@@ -15,11 +15,15 @@ IL2CppBinParser::IL2CppBinParser(void *bin, uint32_t version) {
         initWithMacho64();
     } else if(fileID == 0x464C457F){
         isElf64 = true;
-        fixElf64Relocation();
+//        fixElf64Relocation();
         initWithElf64();
     }else{
         assert(isMacho64 || isMacho || isElf64 || isElf);
     }
+}
+
+void* IL2CppBinParser::seek2Offset(uint64_t offset) {
+    return (void*)((uint8_t*)il2cppbin + offset);
 }
 
 void* IL2CppBinParser::RAW2RVA(uint64_t raw) {
@@ -31,18 +35,35 @@ void* IL2CppBinParser::RAW2RVA(uint64_t raw) {
 
 uint64_t IL2CppBinParser::RVA2RAW(void *rva) {
     if (isElf64){
+        uint64_t targetAddr = (uint64_t)rva;
+        Elf64_Ehdr* elf64h = (Elf64_Ehdr*)il2cppbin;
+        uint64_t elf64ProgramTablelOffset = elf64h->e_phoff;
+        int elf64ProgramTableCount = elf64h->e_phnum;
+        Elf64_Phdr* elf64ProgramTable = (Elf64_Phdr*)seek2Offset(elf64ProgramTablelOffset);
+        for (int i = 0; i < elf64ProgramTableCount; ++i) {
+            Elf64_Phdr* curPhdr = elf64ProgramTable + i;
+            if (targetAddr >= curPhdr->p_vaddr && targetAddr <= curPhdr->p_vaddr + curPhdr->p_memsz){
+                return targetAddr - (curPhdr->p_vaddr - curPhdr->p_offset);
+            }
+        }
+        XDLOG("address not found elf64 progarm segment, here return orig address\n");
         return (uint64_t)rva;
+    } else if (isMacho64){
+        return (uint64_t)((uint64_t)rva - 0x100000000);
     }
-    return (uint64_t)((uint64_t)rva - 0x100000000);
 }
 
 void* IL2CppBinParser::idaAddr2MemAddr(void *idaAddr) {
-    void* mem = (void*)((char*)il2cppbin + RVA2RAW(idaAddr));
+    uint64_t offset = RVA2RAW(idaAddr);
+    void* mem = seek2Offset(offset);
     // XDLOG("ida address:0x%lx il2cppbin address:0x%lx mem address:0x%lx\n", idaAddr, il2cppbin, mem);
     return mem;
 }
 
 int64_t IL2CppBinParser::fixElf64Relocation(uint64_t needFixAddr) {
+    // http://www.sco.com/developers/gabi/2003-12-17/ch4.reloc.html
+    // https://topsrc.cn/archives/170/
+    // http://netwinder.osuosl.org/users/p/patb/public_html/elf_relocs.html
     Elf64_Ehdr* elfh = (Elf64_Ehdr*)il2cppbin;
     // .dynsym .dynstr
     XRange* range = elf64_get_sec_range_by_name(elfh, ".rela.dyn");
@@ -60,45 +81,6 @@ int64_t IL2CppBinParser::fixElf64Relocation(uint64_t needFixAddr) {
     }
     XDLOG("not found target need fix relocation address, here return orig address\n");
     return needFixAddr;
-}
-
-void IL2CppBinParser::fixElf64Relocation() {
-    // http://www.sco.com/developers/gabi/2003-12-17/ch4.reloc.html
-    #define R_AARCH64_ABS64  257
-    #define R_AARCH64_RELATIVE  1027
-
-    Elf64_Ehdr* elfh = (Elf64_Ehdr*)il2cppbin;
-    // .dynsym .dynstr
-    XRange* relaRange = elf64_get_sec_range_by_name(elfh, ".rela.dyn");
-    XRange* dsymRange = elf64_get_sec_range_by_name(elfh, ".dynsym");
-    XRange* dstrRange = elf64_get_sec_range_by_name(elfh, ".dynstr");
-
-    Elf64_Rela* rela = (Elf64_Rela*)(relaRange->start);
-    int relaCount = (relaRange->end - relaRange->start) / sizeof(Elf64_Rela);
-
-    Elf64_Sym* dsymTable = (Elf64_Sym*)(dsymRange->start);
-    uint64_t dsymCount = (dsymRange->start - dsymRange->end) / sizeof(Elf64_Sym);
-    try {
-        for (int i = 0; i < relaCount; ++i) {
-            Elf64_Rela* curRela = rela + i;
-            void* offset = (void*)curRela->r_offset;
-            uint64_t type = curRela->r_info & 0xffffffff;
-            uint64_t sym = curRela->r_info >> 32;
-            switch (type){
-                case R_AARCH64_ABS64:{
-                    Elf64_Sym* dsym = dsymTable + sym;
-                    *(uint64_t*)idaAddr2MemAddr(offset) = dsym->st_value + curRela->r_addend;
-                }
-                case R_AARCH64_RELATIVE:{
-                    *(uint64_t*)idaAddr2MemAddr(offset) = curRela->r_addend;
-                }
-
-            }
-        }
-    }catch (std::exception& e){
-        // ignore
-    }
-
 }
 
 void IL2CppBinParser::initWithElf64() {
@@ -171,7 +153,7 @@ void IL2CppBinParser::initWithElf64() {
     insn = arm64_insn_from_addr(mem_pc);
     uint32_t g_CodeRegistration_page_offset = arm64_add_decode_imm(insn);
     void* ida_codeRegistration = (void*)((uint8_t*)g_CodeRegistration_page + g_CodeRegistration_page_offset);
-    XILOG("decode g_CodeRegistration adrress from bin:0x%lx\n", codeRegistration);
+    XILOG("decode g_CodeRegistration adrress from bin:0x%lx\n", ida_codeRegistration);
 
     codeRegistration = idaAddr2MemAddr(ida_codeRegistration);
     metadataRegistration = idaAddr2MemAddr(ida_metadataRegistration);
