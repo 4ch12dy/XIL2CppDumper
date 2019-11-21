@@ -26,8 +26,9 @@ public:
 
     IL2CppBinParser(void* il2cppbin, uint32_t metadataVersion);
     void initWithMacho64();
-    void fixElf64Relocation();
     int64_t fixElf64Relocation(uint64_t needFixAddr);
+    Arm_Addr fixElf32Relocation(Arm_Addr needFixAddr);
+    void initWithElf32();
     void initWithElf64();
 
     void* seek2Offset(uint64_t offset);

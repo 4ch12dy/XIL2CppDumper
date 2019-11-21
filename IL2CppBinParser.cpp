@@ -14,9 +14,14 @@ IL2CppBinParser::IL2CppBinParser(void *bin, uint32_t version) {
         isMacho64 = true;
         initWithMacho64();
     } else if(fileID == 0x464C457F){
-        isElf64 = true;
-//        fixElf64Relocation();
-        initWithElf64();
+        uint8_t elfClass = *((uint8_t*)il2cppbin + 4);
+        if (elfClass == 0x01){
+            isElf = true;
+            initWithElf32();
+        }else if(elfClass == 0x02){
+            isElf64 = true;
+            initWithElf64();
+        }
     }else{
         assert(isMacho64 || isMacho || isElf64 || isElf);
     }
@@ -34,7 +39,21 @@ void* IL2CppBinParser::RAW2RVA(uint64_t raw) {
 }
 
 uint64_t IL2CppBinParser::RVA2RAW(void *rva) {
-    if (isElf64){
+    if (isElf) {
+        uint64_t targetAddr = (uint64_t)rva;
+        Elf32_Ehdr* elf32h = (Elf32_Ehdr*)il2cppbin;
+        uint32_t elf32ProgramTablelOffset = elf32h->e_phoff;
+        int elf32ProgramTableCount = elf32h->e_phnum;
+        Elf32_Phdr* elf32ProgramTable = (Elf32_Phdr*)seek2Offset(elf32ProgramTablelOffset);
+        for (int i = 0; i < elf32ProgramTableCount; ++i) {
+            Elf32_Phdr* curPhdr = elf32ProgramTable + i;
+            if (targetAddr >= curPhdr->p_vaddr && targetAddr <= curPhdr->p_vaddr + curPhdr->p_memsz){
+                return targetAddr - (curPhdr->p_vaddr - curPhdr->p_offset);
+            }
+        }
+        XDLOG("address not found elf64 progarm segment, here return orig address\n");
+        return (uint64_t)rva;
+    }else if (isElf64){
         uint64_t targetAddr = (uint64_t)rva;
         Elf64_Ehdr* elf64h = (Elf64_Ehdr*)il2cppbin;
         uint64_t elf64ProgramTablelOffset = elf64h->e_phoff;
@@ -51,6 +70,7 @@ uint64_t IL2CppBinParser::RVA2RAW(void *rva) {
     } else if (isMacho64){
         return (uint64_t)((uint64_t)rva - 0x100000000);
     }
+    return (uint64_t)rva;
 }
 
 void* IL2CppBinParser::idaAddr2MemAddr(void *idaAddr) {
@@ -81,6 +101,111 @@ int64_t IL2CppBinParser::fixElf64Relocation(uint64_t needFixAddr) {
     }
     XDLOG("not found target need fix relocation address, here return orig address\n");
     return needFixAddr;
+}
+
+Arm_Addr IL2CppBinParser::fixElf32Relocation(Arm_Addr needFixAddr) {
+
+    Elf32_Ehdr* elfh = (Elf32_Ehdr*)il2cppbin;
+    // .dynsym .dynstr
+    XRange* rel_range = elf32_get_sec_range_by_name(elfh, ".rel.dyn");
+    XRange* dsym_range = elf32_get_sec_range_by_name(elfh, ".dynsym");
+
+    Elf32_Sym* dsymTable = (Elf32_Sym*)dsym_range->start;
+    int dsymCount = (dsym_range->end - dsym_range->start) / sizeof(Elf32_Sym);
+
+    Elf32_Rel* rela = (Elf32_Rel*)(rel_range->start);
+    int count = (rel_range->end - rel_range->start) / sizeof(Elf32_Rel);
+    for (int i = 0; i < count; ++i) {
+        Elf32_Rel* curRel = rela + i;
+        uint32_t curOffset = curRel->r_offset;
+        XDLOG("fix addr:%x\n", curOffset);
+        if(curOffset == needFixAddr){
+            Elf32_Sym* curSym = dsymTable + (curRel->r_info >> 8);
+            XDLOG("found target need fix relocation address:0x%x to 0x%x\n", needFixAddr, curSym->st_value);
+            return curSym->st_value;
+        }
+    }
+    XDLOG("not found target need fix relocation address, here return orig address:%x\n", needFixAddr);
+    return needFixAddr;
+}
+
+void IL2CppBinParser::initWithElf32() {
+    Elf32_Ehdr* elfh = (Elf32_Ehdr*)il2cppbin;
+    XRange* range = elf32_get_sec_range_by_name(elfh, ".init_array");
+    assert(range);
+    Arm_Addr init_register_ida_addr = 0;
+    uint32_t *start = (uint32_t*)range->start;
+    uint32_t *end = (uint32_t*)range->end;
+    int i = 0;
+    for (uint32_t *p = start; p < end; ++p) {
+        i++;
+        uint32_t insn_1 = arm_insn_from_addr(idaAddr2MemAddr((uint32_t*)*p));
+        uint32_t insn_2 = arm_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr((uint32_t*)*p) + 1));
+        uint32_t insn_3 = arm_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr((uint32_t*)*p) + 2));
+        uint32_t insn_4 = arm_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr((uint32_t*)*p) + 3));
+        uint32_t insn_5 = arm_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr((uint32_t*)*p) + 4));
+        uint32_t insn_6 = arm_insn_from_addr((void*)((uint32_t*)idaAddr2MemAddr((uint32_t*)*p) + 5));
+        if ((metadataVersion == 24) && arm_is_ldr_literal(insn_1) && arm_is_mov_imm(insn_2) && arm_is_ldr_literal(insn_3) && arm_is_mov_imm(insn_4) && arm_is_add_r(insn_5) && arm_is_add_r(insn_6)){
+            XILOG("found init register func:0x%x\n", *p);
+            init_register_ida_addr = (Arm_Addr)*p;
+            break;
+        }
+    }
+    assert(init_register_ida_addr);
+    Arm_Addr ida_pc = (Arm_Addr)init_register_ida_addr;
+    uint32_t *mem_pc = (uint32_t*)idaAddr2MemAddr((void*)init_register_ida_addr);
+
+    ida_pc = arm_addr_add(ida_pc, 2);
+    mem_pc += 2;
+    Arm_Insn insn = arm_insn_from_addr(mem_pc);
+    int32_t pc_shift_value = arm_ldr_literal_decode_imm(insn);
+    Arm_Addr ida_s_Il2CppCodegenRegistration_offset_ptr = arm_addr_add(ida_pc, 2) + pc_shift_value;
+    uint32_t s_Il2CppCodegenRegistration_offset = *(uint32_t*)idaAddr2MemAddr((void*)ida_s_Il2CppCodegenRegistration_offset_ptr);
+
+    ida_pc = arm_addr_add(ida_pc, 3);
+    mem_pc += 3;
+    Arm_Addr ida_s_Il2CppCodegenRegistration = arm_addr_add(ida_pc, 2) + s_Il2CppCodegenRegistration_offset;
+    XILOG("decode s_Il2CppCodegenRegistration adrress from bin:0x%x\n", ida_s_Il2CppCodegenRegistration);
+
+    /**
+     *  LDR             R1, =(g_MetadataRegistration_ptr - 0x1FCB00)
+     *  LDR             R0, =(g_CodeRegistration - 0x1FCB04)
+     *  LDR             R2, =(_ZL22s_Il2CppCodeGenOptions_0 - 0x1FCB08) ; s_Il2CppCodeGenOptions
+     *  LDR             R1, [PC,R1] ; g_MetadataRegistration
+     *  ADD             R0, PC, R0 ; g_CodeRegistration
+     *  ADD             R2, PC, R2 ; s_Il2CppCodeGenOptions
+     */
+
+    ida_pc = ida_s_Il2CppCodegenRegistration;
+    mem_pc = (uint32_t*)idaAddr2MemAddr((void*)ida_pc);
+    insn = arm_insn_from_addr(mem_pc);
+    pc_shift_value = arm_ldr_literal_decode_imm(insn);
+    Arm_Addr ida_g_MetadataRegistration_offset_ptr = arm_addr_add(ida_pc, 2) + pc_shift_value;
+    uint32_t g_MetadataRegistration_offset = *(uint32_t*)idaAddr2MemAddr((void*)ida_g_MetadataRegistration_offset_ptr);
+
+    ida_pc = arm_addr_add(ida_pc, 1);
+    mem_pc += 1;
+    insn = arm_insn_from_addr(mem_pc);
+    pc_shift_value = arm_ldr_literal_decode_imm(insn);
+    Arm_Addr ida_g_CodeRegistration_offset_ptr = arm_addr_add(ida_pc, 2) + pc_shift_value;
+    uint32_t g_CodeRegistration_offset = *(uint32_t*)idaAddr2MemAddr((void*)ida_g_CodeRegistration_offset_ptr);
+
+    ida_pc = arm_addr_add(ida_pc, 2);
+    mem_pc += 2;
+    insn = arm_insn_from_addr(mem_pc);
+    assert(arm_is_ldr_r(insn));
+    Arm_Addr ida_MetadataRegistration_ptr = arm_addr_add(ida_pc, 2) + g_MetadataRegistration_offset;
+    Arm_Addr ida_metadataRegistration = *(Arm_Addr*)idaAddr2MemAddr((void*)ida_MetadataRegistration_ptr);
+    XILOG("decode g_MetadataRegistration adrress from bin:0x%x\n", ida_metadataRegistration);
+
+    ida_pc = arm_addr_add(ida_pc, 1);
+    mem_pc += 1;
+    insn = arm_insn_from_addr(mem_pc);
+    Arm_Addr ida_codeRegistration = arm_addr_add(ida_pc, 2) + g_CodeRegistration_offset;
+    XILOG("decode g_CodeRegistration adrress from bin:0x%x\n", ida_codeRegistration);
+
+    codeRegistration = idaAddr2MemAddr((void*)ida_codeRegistration);
+    metadataRegistration = idaAddr2MemAddr((void*)ida_metadataRegistration);
 }
 
 void IL2CppBinParser::initWithElf64() {
@@ -115,6 +240,7 @@ void IL2CppBinParser::initWithElf64() {
             break;
         }
     }
+    assert(init_register_ida_addr);
     uint32_t *ida_pc = (uint32_t*)init_register_ida_addr;
     uint32_t *mem_pc = (uint32_t*)idaAddr2MemAddr(init_register_ida_addr);
 
