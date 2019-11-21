@@ -1,7 +1,7 @@
 # XIL2CppDumper
 IL2CppDumper writed in C++
 
-
+### Usage
 
 ```
  __  _____ _     ____   ____             ____                                  
@@ -16,7 +16,7 @@ IL2CppDumper writed in C++
 +--------------------------------------------------------------------------------------+
 | XIL2CppDumper | a tool of C++ version IL2CppDumper made by xia0@2019                 |
 +--------------------------------------------------------------------------------------+
-| Info          | version: 0.1 support: iOS[arm64] Android[arm64] il2cpp[24.1/24.0]    |
+| Info          | version: 0.2 support: iOS[arm64] Android[arm64] il2cpp[24.1/24.0]    |
 +--------------------------------------------------------------------------------------+
 | Usage         | XIL2CppDumper unity_metadata_file_path il2cpp_so_or_macho_file_path  |
 +--------------------------------------------------------------------------------------+
@@ -28,3 +28,36 @@ IL2CppDumper writed in C++
 +--------------------------------------------------------------------------------------+
 ```
 
+### Features
+
+- Complete DLL restore (except code)
+
+- Supports (ELF) ELF64, MachO64 format
+
+- Supports Unity all version theoretically (test on unity3d(2017-2019))
+
+- Supports automated IDA script generation (coming soon)
+
+  
+
+### Compile
+
+Default use Clion to compile it to x64 progam. 
+
+For android arm32 libil2cpp.so, It need compile to x86 binary for the same  il2cpp header files.
+
+
+
+### Dump files
+
+**dump.cs**
+
+dump C# all types and address
+
+
+
+### Credits
+
+- Perfare - [Il2CppDumper](https://github.com/Perfare/Il2CppDumper)
+
+- nevermoe - [unity_metadata_loader](https://github.com/nevermoe)
