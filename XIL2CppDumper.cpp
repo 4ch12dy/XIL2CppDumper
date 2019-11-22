@@ -42,6 +42,10 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     g_MethodPointers = (Il2CppMethodPointer*)idaAddr2MemAddr((void*)(g_CodeRegistration->methodPointers));
     methodPointersCount = g_CodeRegistration->methodPointersCount;
 
+    void* ida_metadataUsages = (void*)g_MetadataRegistration->metadataUsages;
+    g_MetadataUsages = (void** const*)idaAddr2MemAddr(ida_metadataUsages);
+    metadataUsagesCount = g_MetadataRegistration->metadataUsagesCount;
+
     g_Il2CppTypeTable = (const Il2CppType**)(idaAddr2MemAddr((void*)g_MetadataRegistration->types));
     g_Il2CppTypeTableCount = (int32_t)(g_MetadataRegistration->typesCount);
 
@@ -50,9 +54,12 @@ void XIL2CppDumper::initMetadata(const char *metadataFile, const char *il2cpBinF
     // open file for write
 #if X_DEBUG
     outfile.open("../dump/dump.cs", ios::out | ios::trunc);
+    scriptfile.open("../dump/script.py", ios::out | ios::trunc);
 #else
     outfile.open("dump.cs", ios::out | ios::trunc);
+    scriptfile.open("script.py", ios::out | ios::trunc);
 #endif
+    initScript();
 }
 
 // il2cpp function
@@ -90,6 +97,12 @@ void* XIL2CppDumper::getMethodPointerIDAValueByIndex(MethodIndex index) {
     assert(g_MethodPointers && index >=0 && index <= methodPointersCount);
 
     return (void*)g_MethodPointers[index];
+}
+
+void* XIL2CppDumper::getUsageAddressIDAValueByIndex(uint32_t index) {
+
+    void* addr = (void*)g_MetadataUsages[index];
+    return addr;
 }
 
 // metadata function
@@ -161,7 +174,6 @@ const Il2CppParameterDefinition* XIL2CppDumper::getParameterDefinitionByIndex(Pa
     const Il2CppParameterDefinition* parameterDefinition = (const Il2CppParameterDefinition*)(metadataParameterDefinitionTable + index);
     return parameterDefinition;
 }
-
 
 string XIL2CppDumper::typeStringForID(int id) {
     int index = id;
@@ -505,9 +517,10 @@ void XIL2CppDumper::dump() {
                     write2File("\t");
                     write2File(getMethodAttribute(methodDefinition));
                     const Il2CppType* methodReturnType = getTypeFromIl2CppTypeTableByIndex(methodDefinition->returnType);
-                    const  char* methodName = getStringByIndex(methodDefinition->nameIndex);
-                    write2File(format("%s %s(", getTypeName(methodReturnType).data(), methodName));
-                    DLOG("\t\tmethod: %s %s();\n", getTypeName(methodReturnType).data(), methodName);
+                    const char* methodTypeName = getTypeName(methodReturnType).data();
+                    const char* methodName = getStringByIndex(methodDefinition->nameIndex);
+                    write2File(format("%s %s(", typeName, getTypeName(methodReturnType).data(), methodName));
+                    DLOG("\t\tmethod: %s %s();\n", methodTypeName, methodName);
                     for (int j = 0; j < methodDefinition->parameterCount; ++j) {
                         string parameterStr = "";
                         const Il2CppParameterDefinition* parameterDefinition = getParameterDefinitionByIndex(methodDefinition->parameterStart + j);
@@ -528,6 +541,9 @@ void XIL2CppDumper::dump() {
                     // dump offset
                     void* methodPointer = getMethodPointerIDAValueByIndex(methodDefinition->methodIndex);
                     write2File(format(" // RVA: 0x%lX Offset:0x%lx\n", methodPointer, RVA2RAW(methodPointer)));
+                    if ((uint64_t)methodPointer != 0xFFFFFFFFFFFFFFFF){
+                        write2Script(format("SetName(0x%lX, \"%s$$%s\")\n", methodPointer, typeName, methodName));
+                    }
                     DLOG("\t\t\t RVA: 0x%lX Offset:0x%lx\n", methodPointer, RVA2RAW(methodPointer));
                 }
 
@@ -536,21 +552,113 @@ void XIL2CppDumper::dump() {
             write2File("\n}");
         }
     }
+    dumpUsage();
+}
 
-    outfile.close();
+void XIL2CppDumper::dumpUsage() {
+    XDLOG("\ndump usage:\n");
+    int usageListCount = metadataHeader->metadataUsageListsCount / sizeof(Il2CppMetadataUsageList);
+    for (int n = 0; n < usageListCount; ++n) {
+        uint32_t index = n;
+
+        assert(this->metadataHeader->metadataUsageListsCount >= 0 && index <= static_cast<uint32_t>(this->metadataHeader->metadataUsageListsCount));
+
+        const Il2CppMetadataUsageList* metadataUsageLists = MetadataOffset<const Il2CppMetadataUsageList*>(this->metadata, this->metadataHeader->metadataUsageListsOffset, index);
+        uint32_t start = metadataUsageLists->start;
+        uint32_t count = metadataUsageLists->count;
+        for (uint32_t i = 0; i < count; i++)
+        {
+            uint32_t offset = start + i;
+            assert(metadataHeader->metadataUsagePairsCount >= 0 && offset <= static_cast<uint32_t>(metadataHeader->metadataUsagePairsCount));
+            const Il2CppMetadataUsagePair* metadataUsagePairs = MetadataOffset<const Il2CppMetadataUsagePair*>(metadata, metadataHeader->metadataUsagePairsOffset, offset);
+            uint32_t destinationIndex = metadataUsagePairs->destinationIndex;
+
+            uint32_t encodedSourceIndex = metadataUsagePairs->encodedSourceIndex;
+
+            Il2CppMetadataUsage usage = GetEncodedIndexType(encodedSourceIndex);
+            uint32_t decodedIndex = GetDecodedMethodIndex(encodedSourceIndex);
+            switch (usage)
+            {
+                case kIl2CppMetadataUsageTypeInfo:
+                    //metadataUsages[destinationIndex] = GetTypeInfoFromTypeIndex(decodedIndex);
+                    break;
+                case kIl2CppMetadataUsageIl2CppType:
+                    //metadataUsages[destinationIndex] = const_cast<Il2CppType*>(GetIl2CppTypeFromIndex(decodedIndex));
+                    //break;
+                case kIl2CppMetadataUsageMethodDef:
+                    //metadataUsages_method[destinationIndex] = const_cast<MethodInfo*>(GetMethodInfoFromMethodDefinitionIndex(encodedSourceIndex));
+                    break;
+                case kIl2CppMetadataUsageMethodRef:
+                    //metadataUsages_method[destinationIndex] = const_cast<MethodInfo*>(GetMethodInfoFromMethodDefinitionIndex(encodedSourceIndex));
+                    //metadataUsages[destinationIndex] = const_cast<char*>(GetMethodInfoFromIndex(encodedSourceIndex));
+                    break;
+                case kIl2CppMetadataUsageFieldInfo:
+                    //metadataUsages[destinationIndex] = GetFieldInfoFromIndex(decodedIndex);
+                    break;
+                case kIl2CppMetadataUsageStringLiteral:{
+                    char* theStr = getStringLiteralFromIndex(decodedIndex);
+                    XILOG("[%d] %s  dstIndex:%d addr:0x%lX\n", i, theStr, destinationIndex, getUsageAddressIDAValueByIndex(destinationIndex));
+                    write2Script(format("SetString(0x%lX, \"%s\")\n", getUsageAddressIDAValueByIndex(destinationIndex), toEscapedString(theStr)));
+                    break;
+                }
+
+                default:
+                    //std::cout << "not implemented" << std::endl;
+                    break;
+            }
+        }
+    }
 }
 
 // misc function
 
-char* XIL2CppDumper::removeAllChars(char *str, char c) {
-    char *pr = str, *pw = str;
-    while (*pr) {
-        *pw = *pr++;
-        pw += (*pw != c);
+const char* XIL2CppDumper::toEscapedString(char *str){
+    string retStr;
+    while (*str) {
+        switch (*str){
+            case '\'':{
+                retStr += "\\\'";
+                break;
+            }
+            case '"':{
+                retStr += "\\\"";
+                break;
+            }
+            case '\t':{
+                retStr += "\\\t";
+                break;
+            }
+            case '\n':{
+                retStr += "\\\n";
+                break;
+            }
+            case '\r':{
+                retStr += "\\\r";
+                break;
+            }
+            case '\f':{
+                retStr += "\\\f";
+                break;
+            }
+            case '\b':{
+                retStr += "\\\b";
+                break;
+            }
+            case '\\':{
+                retStr += "\\\\";
+                break;
+            }
+            case '\0':{
+                retStr += "\\\0";
+                break;
+            }
+            default:
+                retStr += *str;
+                break;
+        }
+        str++;
     }
-    *pw = '\0';
-
-    return str;
+    return retStr.data();
 }
 
 string XIL2CppDumper::format(const char *fmt, ...) {
@@ -576,9 +684,15 @@ void XIL2CppDumper::write2File(string str) {
     outfile << str;
 }
 
+void XIL2CppDumper::write2Script(string str) {
+    scriptfile << str;
+}
+
 void XIL2CppDumper::clean() {
 //    munmap(metadata, len);
 //    munmap(il2cppbin, len);
+    outfile.close();
+    scriptfile.close();
 }
 
 // test function
@@ -637,7 +751,7 @@ void XIL2CppDumper::dumpString() {
                     break;
                 case kIl2CppMetadataUsageStringLiteral:{
                     char* theStr = getStringLiteralFromIndex(decodedIndex);
-                    XILOG("[%d] %s\n", i, theStr);
+                    XILOG("[%d] %s  dstIndex:%d realIndex:%d addr:0x%lX\n", i, theStr, destinationIndex, destinationIndex+9652, getUsageAddressIDAValueByIndex(destinationIndex));
                     break;
                 }
 
@@ -647,4 +761,32 @@ void XIL2CppDumper::dumpString() {
             }
         }
     }
+}
+
+void XIL2CppDumper::initScript() {
+    write2Script("#encoding: utf-8\n");
+    write2Script("import idaapi\n\n");
+    write2Script("def SetString(addr, comm):\n");
+    write2Script("\tglobal index\n");
+    write2Script("\tname = \"StringLiteral_\" + str(index)\n");
+    write2Script("\tret = idc.set_name(addr, name, SN_NOWARN)\n");
+    write2Script("\tidc.set_cmt(addr, comm, 1)\n");
+    write2Script("\tindex += 1\n");
+
+    write2Script("def SetName(addr, name):\n");
+    write2Script("\tret = idc.set_name(addr, name, SN_NOWARN | SN_NOCHECK)\n");
+    write2Script("\tif ret == 0:\n");
+    write2Script("\t\tnew_name = name + '_' + str(addr)\n");
+    write2Script("\t\tret = idc.set_name(addr, new_name, SN_NOWARN | SN_NOCHECK)\n");
+
+    write2Script("def MakeFunction(start, end):\n");
+    write2Script("\tnext_func = idc.get_next_func(start)\n");
+    write2Script("\tif next_func < end:\n");
+    write2Script("\t\tend = next_func\n");
+    write2Script("\tif idc.get_func_attr(start, FUNCATTR_START) == start:\n");
+    write2Script("\t\tida_funcs.del_func(start)\n");
+    write2Script("\tida_funcs.add_func(start, end)\n");
+
+    write2Script("index = 1\n");
+    write2Script("print('Making method name...')\n");
 }

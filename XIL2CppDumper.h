@@ -46,9 +46,12 @@ public:
     int32_t g_Il2CppTypeTableCount;
     Il2CppMethodPointer * g_MethodPointers;
     uint32_t methodPointersCount;
+    void** const * g_MetadataUsages;
+    uint32_t metadataUsagesCount;
 
     // misc field
     ofstream outfile;
+    ofstream scriptfile;
 
     // binary file
     IL2CppBinParser* binParser;
@@ -69,6 +72,7 @@ public:
     const Il2CppType* getTypeFromIl2CppTypeTableByIndex(TypeIndex index);
     Il2CppMethodPointer getMethodPointerFromMethodPointersByIndex(MethodIndex index);
     void* getMethodPointerIDAValueByIndex(MethodIndex index);
+    void* getUsageAddressIDAValueByIndex(uint32_t index);
 
     string typeStringForID(int id);
     string getTypeName(const Il2CppType* type);
@@ -87,12 +91,15 @@ public:
     const Il2CppParameterDefinition* getParameterDefinitionByIndex(ParameterIndex index);
 
     // misc
-    char* removeAllChars(char* str, char c);
+    const char* toEscapedString(char* str);
     inline string format(const char* fmt, ...);
     void write2File(string str);
+    void write2Script(string str);
+    void initScript();
     void clean();
 
-    // test
+    // dump
+    void dumpUsage();
     void dumpAllImages();
     void dumpString();
     void dump();
