@@ -1,5 +1,9 @@
 # XIL2CppDumper
-IL2CppDumper writed in C++
+> IL2CppDumper writed in C++
+
+
+
+这个项目是我理解unity的il2cpp原理写的一个玩具，由于IL2CppDumper用C#开发，所以并不支持macOS和linux，il2cpp本身也是C++开发的，为了方便所以我选择了用C++去开发，算是唯一一款跨平台的il2cpp dump工具。目前工具支持il2cpp 24.0/24.1版本，其他版本移植的难度也不大。目前支持Android和iOS 64位可执行文件，32位需自己编译。项目花费了大量时间和精力去开发维护，如果有帮助的话记得点小星星哦，enjoy~（xia0@2019.12.31）
 
 ### Usage
 
@@ -36,7 +40,7 @@ IL2CppDumper writed in C++
 
 - Supports Unity all version theoretically (test on unity3d(2017-2019))
 
-- Supports automated IDA script generation (coming soon)
+- Supports automated IDA script generation
 
   
 
@@ -53,6 +57,10 @@ For android arm32 libil2cpp.so, It need compile to x86 binary for the same  il2c
 **dump.cs**
 
 dump C# all types and address
+
+**script.py**
+
+ida python script to restore symbol
 
 
 
