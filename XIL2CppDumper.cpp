@@ -5,6 +5,7 @@
 #include <vector>
 #include "XIL2CppDumper.h"
 #include "XB1nLib/XB1nLib.h"
+#include <stdarg.h>
 
 XIL2CppDumper* XIL2CppDumper::m_pInstance = NULL;
 
@@ -517,10 +518,10 @@ void XIL2CppDumper::dump() {
                     write2File("\t");
                     write2File(getMethodAttribute(methodDefinition));
                     const Il2CppType* methodReturnType = getTypeFromIl2CppTypeTableByIndex(methodDefinition->returnType);
-                    const char* methodTypeName = getTypeName(methodReturnType).data();
+                    //const char* methodTypeName = getTypeName(methodReturnType).data();  // use this to DLOG lead to wrong encode
                     const char* methodName = getStringByIndex(methodDefinition->nameIndex);
                     write2File(format("%s %s(", typeName, getTypeName(methodReturnType).data(), methodName));
-                    DLOG("\t\tmethod: %s %s();\n", methodTypeName, methodName);
+                    DLOG("\t\tmethod: %s %s();\n", getTypeName(methodReturnType).data(), methodName); 
                     for (int j = 0; j < methodDefinition->parameterCount; ++j) {
                         string parameterStr = "";
                         const Il2CppParameterDefinition* parameterDefinition = getParameterDefinitionByIndex(methodDefinition->parameterStart + j);
@@ -668,11 +669,13 @@ string XIL2CppDumper::format(const char *fmt, ...) {
     va_list vl;
     va_start(vl, fmt);
     int nsize = vsnprintf(buffer, size, fmt, vl);
-    if(size<=nsize){ //fail delete buffer and try again
+    if(size<=nsize){ //fail, delete buffer and try again
+        va_end(vl);
+        va_start(vl, fmt); // needed
         delete[] buffer;
         buffer = 0;
         buffer = new char[nsize+1]; //+1 for /0
-        nsize = vsnprintf(buffer, size, fmt, vl);
+        nsize = vsnprintf(buffer, nsize, fmt, vl);
     }
     std::string ret(buffer);
     va_end(vl);

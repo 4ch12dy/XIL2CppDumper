@@ -9,7 +9,7 @@
  *  1   open
  *  0   close
  */
-#define X_DEBUG 1
+#define X_DEBUG 0
 
 /*
  *  1: [strict] assert() check
